@@ -1,0 +1,6 @@
+{
+  "name": "IDsvault Identity Brokerage",
+  "description": "Premium Digital Identity & Instagram/X username manual escrow marketplace. Facilitating risk-free Web asset transfers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
