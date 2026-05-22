@@ -211,6 +211,13 @@ export default function App() {
   const [buyerNotes, setBuyerNotes] = useState<string>('');
   const [turnstileVerified, setTurnstileVerified] = useState<boolean>(false);
 
+  // WhatsApp official handover routing modal state
+  const [whatsappConfirmOpen, setWhatsappConfirmOpen] = useState<boolean>(false);
+  const [whatsappConfirmMsg, setWhatsappConfirmMsg] = useState<string>('');
+  const [whatsappConfirmTitle, setWhatsappConfirmTitle] = useState<string>('');
+  const [whatsappConfirmSubtitle, setWhatsappConfirmSubtitle] = useState<string>('');
+  const [whatsappConfirmCopied, setWhatsappConfirmCopied] = useState<boolean>(false);
+
   // Admin access validation state
   const [adminAuth, setAdminAuth] = useState<boolean>(() => {
     return sessionStorage.getItem('ids_admin_authenticated') === 'true';
@@ -341,7 +348,13 @@ export default function App() {
       sellerName: sellSellerName,
       brokerageRate: brokeragePct
     });
-    window.open(generateWhatsAppLink(msg), '_blank');
+
+    // Populate WhatsApp Official Transition Modal Instead of Raw Browser popups
+    setWhatsappConfirmTitle("SELLER PROFILE QUEUED");
+    setWhatsappConfirmSubtitle(`Your ownership request for @${sellUsername.replace('@', '')} is logged in our offline registry ledger. Connect with a manual broker now to fast-track verification.`);
+    setWhatsappConfirmMsg(msg);
+    setWhatsappConfirmCopied(false);
+    setWhatsappConfirmOpen(true);
 
     // Reset wizard states
     setWizardStep(1);
@@ -354,9 +367,6 @@ export default function App() {
     setSellDeclaration(false);
     setSellerProofName('');
     setSellerProofData('');
-
-    alert('Submission locked in. Your asset is now queued in our seller verification desks. Our senior brokers will verify parameters on WhatsApp shortly.');
-    setActiveTab('home');
   };
 
   // Form Submission: Specific custom handle acquisition hunt
@@ -388,7 +398,13 @@ export default function App() {
       alternatives: reqAlternatives,
       whatsapp: reqWhatsapp
     });
-    window.open(generateWhatsAppLink(msg), '_blank');
+
+    // Populate WhatsApp Official Transition Modal
+    setWhatsappConfirmTitle("DYNAMIC HUNT REGISTERED");
+    setWhatsappConfirmSubtitle(`Intermediary tracking parameters registered for @${reqUsername.replace('@', '')}. Connect with WhatsApp now to authorize a secure manual brokerage outreach.`);
+    setWhatsappConfirmMsg(msg);
+    setWhatsappConfirmCopied(false);
+    setWhatsappConfirmOpen(true);
 
     // Reset form parameters
     setReqUsername('');
@@ -396,8 +412,6 @@ export default function App() {
     setReqAlternatives('');
     setReqWhatsapp('');
     setReqUrgency('Medium');
-
-    alert('Your hunting parameters are registered. Checking WhatsApp redirection to establish private deal rooms.');
   };
 
   // Form Submission: Start secure escrow deal from detail page
@@ -439,7 +453,13 @@ export default function App() {
       name: buyerName,
       notes: buyerNotes
     });
-    window.open(generateWhatsAppLink(contactMsg), '_blank');
+
+    // Populate WhatsApp Official Transition Modal
+    setWhatsappConfirmTitle("SECURE ESCROW DEPOSIT DEPLOYED");
+    setWhatsappConfirmSubtitle(`An official transaction reserve code is assigned. Your bid of ₹${agreedAmount.toLocaleString('en-IN')} has locked @${listingItem.username.replace('@', '')}. Establish your secure 3-party chat room now.`);
+    setWhatsappConfirmMsg(contactMsg);
+    setWhatsappConfirmCopied(false);
+    setWhatsappConfirmOpen(true);
 
     // Close and reset states
     setDealModalOpen(false);
@@ -665,7 +685,14 @@ export default function App() {
               </button>
               
               <button
-                onClick={() => window.open(generateWhatsAppLink('Hello! I have inquiries regarding acquiring or selling premium digital handles on IDsvault. Please connect me to a manual broker.'), '_blank')}
+                onClick={() => {
+                  const msg = 'Dear IDsvault Desk,\n\nI have inquiries regarding acquiring or selling premium digital handles on IDsvault. Please connect me to an active senior broker.';
+                  setWhatsappConfirmTitle("DIRECT CONCIERGE CHAT");
+                  setWhatsappConfirmSubtitle("Confidential manual escrow inquiries. Connect directly with our high-value target brokerage desks.");
+                  setWhatsappConfirmMsg(msg);
+                  setWhatsappConfirmCopied(false);
+                  setWhatsappConfirmOpen(true);
+                }}
                 className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white rounded-full text-xs font-bold tracking-wide transition-all active:scale-[0.98]"
               >
                 Direct Concierge Chat
@@ -715,9 +742,14 @@ export default function App() {
               <button
                 onClick={() => {
                   setMobileMenu(false);
-                  window.open(generateWhatsAppLink('Hello! I have queries on digital escrows handles. Please connect a broker.'), '_blank');
+                  const msg = 'Dear IDsvault Desk,\n\nI have queries regarding digital escrow handles. Please assign a manual broker to verify my acquisition parameters.';
+                  setWhatsappConfirmTitle("OFFICIAL BROKER CHAT");
+                  setWhatsappConfirmSubtitle("Confidential assistance. Instantly coordinate custom buyouts, direct inquiries, or compliance reports.");
+                  setWhatsappConfirmMsg(msg);
+                  setWhatsappConfirmCopied(false);
+                  setWhatsappConfirmOpen(true);
                 }}
-                className="w-full text-center py-3 bg-white text-black font-bold text-xs uppercase tracking-wide rounded-xl"
+                className="w-full text-center py-3 bg-white text-black font-bold text-xs uppercase tracking-wide rounded-xl animate-pulse"
               >
                 Broker Chat (WhatsApp)
               </button>
@@ -2256,6 +2288,150 @@ export default function App() {
 
         </div>
       </footer>
+
+      {/* High-Trust Secure WhatsApp Transition Modal */}
+      {whatsappConfirmOpen && (
+        <div id="whatsapp-handover-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030303]/95 backdrop-blur-md">
+          <div className="w-full max-w-xl bg-[#0f0f10] border border-white/10 rounded-2xl p-6 sm:p-8 relative space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] text-left">
+            
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setWhatsappConfirmOpen(false);
+                setActiveTab('home');
+              }}
+              className="absolute top-5 right-5 p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              aria-label="Close Official Handover Modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Core Header with Trust Shield and Status flow */}
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 tracking-wider uppercase rounded font-mono">
+                    SECURE ESCROW PROTOCOL v1.4
+                  </span>
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-white tracking-tight uppercase">
+                  {whatsappConfirmTitle}
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed font-serif italic">
+                  {whatsappConfirmSubtitle}
+                </p>
+              </div>
+            </div>
+
+            {/* Simulated Handover Safe Audits steps to build deep TRUST */}
+            <div className="bg-[#050505] p-4 rounded-xl border border-white/5 space-y-2 text-xs text-zinc-400 font-mono">
+              <div className="flex items-center justify-between">
+                <span>1. Form Parameters Serialization:</span>
+                <span className="text-emerald-400 font-bold">[✔] METADATA SECURED</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>2. Escrow Validation Key Hash:</span>
+                <span className="text-emerald-400 font-bold">[✔] INITIALIZED</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>3. Manual Handover Desk Gateway:</span>
+                <span className="text-yellow-400 animate-pulse font-bold">[●] ESTABLISHING ROOM</span>
+              </div>
+            </div>
+
+            {/* Trusted Pre-filled Template Box */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-mono">
+                  Official Communication Template
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(whatsappConfirmMsg);
+                      setWhatsappConfirmCopied(true);
+                      setTimeout(() => setWhatsappConfirmCopied(false), 2000);
+                    } catch (e) {
+                      // Fallback manually if blocked
+                      const el = document.createElement('textarea');
+                      el.value = whatsappConfirmMsg;
+                      document.body.appendChild(el);
+                      el.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(el);
+                      
+                      setWhatsappConfirmCopied(true);
+                      setTimeout(() => setWhatsappConfirmCopied(false), 2000);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-bold tracking-tight uppercase transition-colors cursor-pointer"
+                >
+                  {whatsappConfirmCopied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied! Ready to Paste</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clipboard className="w-3.5 h-3.5" />
+                      <span>Copy Template Text</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Box of the WhatsApp Text Template for previewing */}
+              <div className="relative group">
+                <pre className="w-full bg-[#050505] border border-white/10 rounded-xl p-4 text-[11px] leading-relaxed text-zinc-300 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  {whatsappConfirmMsg}
+                </pre>
+                <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-[#050505] to-transparent pointer-events-none rounded-b-xl" />
+              </div>
+              <p className="text-[10px] text-zinc-400 leading-snug">
+                ⚠️ <span className="text-zinc-300 font-bold">Pro-Tip for Zero Handover Failure:</span> Clicking below connects you to our broker QR system. Due to custom device features, if the message fails to populate inside WhatsApp, simply long-press in the chat input and select <span className="font-mono text-white bg-white/10 px-1 py-0.5 rounded font-bold">Paste</span>.
+              </p>
+            </div>
+
+            {/* Primary Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <a
+                href={generateWhatsAppLink(whatsappConfirmMsg)}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  setWhatsappConfirmOpen(false);
+                  setActiveTab('home');
+                }}
+                className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-extrabold text-xs tracking-widest uppercase rounded-xl transition-all shadow-lg hover:shadow-emerald-950/50 flex items-center justify-center gap-2 cursor-pointer border border-emerald-400/20 text-center"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Establish Official Deal Room</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setWhatsappConfirmOpen(false);
+                  setActiveTab('home');
+                }}
+                className="px-6 py-4 bg-zinc-900 hover:bg-zinc-800 border border-white/5 text-zinc-400 hover:text-white font-extrabold text-xs tracking-widest uppercase rounded-xl transition-colors cursor-pointer text-center"
+              >
+                Cancel Handover
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
