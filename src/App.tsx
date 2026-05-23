@@ -76,6 +76,7 @@ import {
 
 import ListingCard, { formatINR, getDisplayPriceAndCTA } from './components/ListingCard';
 import CloudflareTurnstile from './components/CloudflareTurnstile';
+import { initGA, logGAEvent, updateSEO } from './lib/seo';
 
 export default function App() {
   // Navigation active route
@@ -210,7 +211,8 @@ export default function App() {
   const [buyerOffer, setBuyerOffer] = useState<string>('');
   const [buyerUrgency, setBuyerUrgency] = useState<string>('Standard Pace');
   const [buyerNotes, setBuyerNotes] = useState<string>('');
-  const [turnstileVerified, setTurnstileVerified] = useState<boolean>(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
+  const turnstileVerified = !!turnstileToken;
 
   // WhatsApp official handover routing modal state
   const [whatsappConfirmOpen, setWhatsappConfirmOpen] = useState<boolean>(false);
@@ -370,27 +372,65 @@ export default function App() {
       uploadProofData: sellerProofData || undefined
     };
 
-    // 1. Save data BEFORE WhatsApp open to satisfy "save forms before WhatsApp redirect"!
-    const updated = [newSub, ...submissions];
-    await syncSubmissions(updated);
-
-    // 2. Open Whatsapp Communication template
-    const msg = buildSellerMessage({
-      username: sellUsername,
-      platform: sellPlatform,
-      category: sellCategory || 'General Digital Asset',
-      askingPrice: parseFloat(sellAskingPrice),
-      minPrice: sellMinPrice ? parseFloat(sellMinPrice) : undefined,
-      sellerName: sellSellerName,
-      brokerageRate: brokeragePct
-    });
-
-    // Populate WhatsApp Official Transition Modal Instead of Raw Browser popups
+    // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("SELLER PROFILE QUEUED");
     setWhatsappConfirmSubtitle(`Your ownership request for @${sellUsername.replace('@', '')} is logged in our offline registry ledger. Connect with a manual broker now to fast-track verification.`);
-    setWhatsappConfirmMsg(msg);
     setWhatsappConfirmCopied(false);
     setWhatsappConfirmOpen(true);
+    setHandoffLoading(true);
+    setHandoffProgress('Preparing your secure broker request...');
+
+    try {
+      const response = await fetch('/api/submit-seller', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: turnstileToken,
+          payload: newSub,
+          fileData: sellerProofData || null,
+          fileName: sellerProofName || null,
+          fileType: sellerProofData ? 'image/png' : null,
+          fileSize: sellerProofData ? Math.floor(sellerProofData.length * 3 / 4) : 0
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        alert(resData.error || 'Security verification failed.');
+        setWhatsappConfirmOpen(false);
+        setHandoffLoading(false);
+        return;
+      }
+
+      // Step-by-step progress feel
+      setHandoffProgress('Generating broker routing hash...');
+      await new Promise(r => setTimeout(r, 600));
+      setHandoffProgress('Encrypting dossier variables...');
+      await new Promise(r => setTimeout(r, 600));
+      setHandoffProgress('Readying manual transition room...');
+      await new Promise(r => setTimeout(r, 600));
+
+      // Hydrate local states
+      const updated = [newSub, ...submissions];
+      await syncSubmissions(updated);
+      
+      const msg = buildSellerMessage({
+        username: sellUsername,
+        platform: sellPlatform,
+        category: sellCategory || 'General Digital Asset',
+        askingPrice: parseFloat(sellAskingPrice),
+        minPrice: sellMinPrice ? parseFloat(sellMinPrice) : undefined,
+        sellerName: sellSellerName,
+        brokerageRate: brokeragePct
+      });
+      setWhatsappConfirmMsg(msg);
+      logGAEvent('submit_seller_success', { username: sellUsername, platform: sellPlatform });
+    } catch (err: any) {
+      alert(`Network failure: ${err?.message || err}`);
+      setWhatsappConfirmOpen(false);
+    } finally {
+      setHandoffLoading(false);
+    }
 
     // Reset wizard states
     setWizardStep(1);
@@ -406,7 +446,7 @@ export default function App() {
   };
 
   // Form Submission: Specific custom handle acquisition hunt
-  const handleAcquisitionSubmit = (e: React.FormEvent) => {
+  const handleAcquisitionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reqUsername || !reqBudget || !reqWhatsapp) return;
 
@@ -421,26 +461,56 @@ export default function App() {
       timestamp: new Date().toISOString()
     };
 
-    // 1. Save form persistently BEFORE WhatsApp opening redirect
-    const updated = [newRequest, ...huntRequests];
-    setHuntRequests(updated);
-
-    // 2. Open WhatsApp link
-    const msg = buildRequestMessage({
-      desiredUsername: reqUsername,
-      platform: reqPlatform,
-      budget: parseFloat(reqBudget),
-      urgency: reqUrgency,
-      alternatives: reqAlternatives,
-      whatsapp: reqWhatsapp
-    });
-
-    // Populate WhatsApp Official Transition Modal
+    // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("DYNAMIC HUNT REGISTERED");
     setWhatsappConfirmSubtitle(`Intermediary tracking parameters registered for @${reqUsername.replace('@', '')}. Connect with WhatsApp now to authorize a secure manual brokerage outreach.`);
-    setWhatsappConfirmMsg(msg);
     setWhatsappConfirmCopied(false);
     setWhatsappConfirmOpen(true);
+    setHandoffLoading(true);
+    setHandoffProgress('Preparing your secure broker request...');
+
+    try {
+      const response = await fetch('/api/submit-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: turnstileToken,
+          payload: newRequest
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        alert(resData.error || 'Turnstile verification failed.');
+        setWhatsappConfirmOpen(false);
+        setHandoffLoading(false);
+        return;
+      }
+
+      setHandoffProgress('Configuring hunt parameters...');
+      await new Promise(r => setTimeout(r, 600));
+      setHandoffProgress('Initializing active scanning...');
+      await new Promise(r => setTimeout(r, 600));
+
+      const updated = [newRequest, ...huntRequests];
+      setHuntRequests(updated);
+
+      const msg = buildRequestMessage({
+        desiredUsername: reqUsername,
+        platform: reqPlatform,
+        budget: parseFloat(reqBudget),
+        urgency: reqUrgency,
+        alternatives: reqAlternatives,
+        whatsapp: reqWhatsapp
+      });
+      setWhatsappConfirmMsg(msg);
+      logGAEvent('submit_request_success', { target: reqUsername, platform: reqPlatform });
+    } catch (err: any) {
+      alert(`Network error: ${err?.message || err}`);
+      setWhatsappConfirmOpen(false);
+    } finally {
+      setHandoffLoading(false);
+    }
 
     // Reset form parameters
     setReqUsername('');
@@ -474,28 +544,56 @@ export default function App() {
       whatsapp: buyerPhone
     };
 
-    // 1. Save form parameters BEFORE WhatsApp redirect
-    const updated = [newDeal, ...deals];
-    await syncDeals(updated);
-
-    // 2. Open WhatsApp Communication link
-    const displayInfo = getDisplayPriceAndCTA(listingItem);
-    const contactMsg = buildBuyerMessage({
-      username: listingItem.username,
-      platform: listingItem.platform,
-      displayPrice: displayInfo.displayPrice,
-      offer: agreedAmount,
-      urgency: buyerUrgency,
-      name: buyerName,
-      notes: buyerNotes
-    });
-
-    // Populate WhatsApp Official Transition Modal
+    // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("SECURE ESCROW DEPOSIT DEPLOYED");
     setWhatsappConfirmSubtitle(`An official transaction reserve code is assigned. Your bid of ₹${agreedAmount.toLocaleString('en-IN')} has locked @${listingItem.username.replace('@', '')}. Establish your secure 3-party chat room now.`);
-    setWhatsappConfirmMsg(contactMsg);
     setWhatsappConfirmCopied(false);
     setWhatsappConfirmOpen(true);
+    setHandoffLoading(true);
+    setHandoffProgress('Preparing your secure broker request...');
+
+    try {
+      const response = await fetch('/api/submit-buyer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: turnstileToken,
+          payload: newDeal
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        alert(resData.error || 'Security verification failed.');
+        setWhatsappConfirmOpen(false);
+        setHandoffLoading(false);
+        return;
+      }
+
+      setHandoffProgress('Generating escrow routing channels...');
+      await new Promise(r => setTimeout(r, 600));
+
+      const updated = [newDeal, ...deals];
+      await syncDeals(updated);
+
+      const displayInfo = getDisplayPriceAndCTA(listingItem);
+      const contactMsg = buildBuyerMessage({
+        username: listingItem.username,
+        platform: listingItem.platform,
+        displayPrice: displayInfo.displayPrice,
+        offer: agreedAmount,
+        urgency: buyerUrgency,
+        name: buyerName,
+        notes: buyerNotes
+      });
+      setWhatsappConfirmMsg(contactMsg);
+      logGAEvent('submit_buyer_success', { target: listingItem.username, amount: agreedAmount });
+    } catch (err: any) {
+      alert(`Network failed: ${err?.message || err}`);
+      setWhatsappConfirmOpen(false);
+    } finally {
+      setHandoffLoading(false);
+    }
 
     // Close and reset states
     setDealModalOpen(false);
@@ -503,46 +601,32 @@ export default function App() {
     setBuyerPhone('');
     setBuyerOffer('');
     setBuyerNotes('');
-    setTurnstileVerified(false);
-
-    alert(`Success, ${buyerName}! Your escrow negotiation is registered. Our broker team has reserved @${listingItem.username}. Monitor active status updates inside the Supervisor Panel.`);
+    setTurnstileToken('');
   };
 
-  // Private Admin Access Validation
+  // Private Admin Access Validation via Supabase Auth Only
   const handleAdminAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (adminAuthMode === 'supabase') {
-      if (!isSupabaseConnected() || !supabase) {
-        alert('Supabase is not configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY first, or authenticate in passcode mode.');
+    if (!isSupabaseConnected() || !supabase) {
+      alert('Supabase is not configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY environment variables first.');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: adminPass
+      });
+      if (error) {
+        alert(`Supabase Auth Security Failed: ${error.message}`);
         return;
       }
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: adminEmail,
-          password: adminPass
-        });
-        if (error) {
-          alert(`Supabase Auth Security Failed: ${error.message}`);
-          return;
-        }
-        setAdminAuth(true);
-        sessionStorage.setItem('ids_admin_authenticated', 'true');
-        setAdminPass('');
-        setAdminEmail('');
-      } catch (err: any) {
-        alert(`Authentication process failed: ${err?.message || err}`);
-      }
-    } else {
-      // Access passcode checking with secret context fallback
-      const targetKey = import.meta.env?.VITE_ADMIN_ACCESS_KEY || 'adminpass';
-      if (adminPass === targetKey) {
-        setAdminAuth(true);
-        sessionStorage.setItem('ids_admin_authenticated', 'true');
-        setAdminPass('');
-      } else {
-        alert('Security Authentication Failed. Please verify the desk credentials passcode.');
-      }
+      setAdminAuth(true);
+      sessionStorage.setItem('ids_admin_authenticated', 'true');
+      setAdminPass('');
+      setAdminEmail('');
+    } catch (err: any) {
+      alert(`Authentication process failed: ${err?.message || err}`);
     }
   };
 
@@ -664,29 +748,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100 flex flex-col font-sans antialiased">
       
-      {/* Dynamic Top Unified Banner */}
-      <section className="bg-gradient-to-r from-blue-950/70 via-black to-indigo-950/70 border-b border-white/[0.04] py-2 px-4 relative z-40">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center text-xs">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <p className="font-semibold text-zinc-300 tracking-wide">
-              Manual Escrow Brokerage • Managing Premium Identity Swaps in INR (₹)
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {supabaseActive ? (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded border border-emerald-500/20">
-                <Database className="w-2.5 h-2.5" /> SUPABASE SYNCED UNIFIED
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-500 font-mono px-2 py-0.5 rounded border border-amber-500/20">
-                <Info className="w-2.5 h-2.5" /> LOCAL STORAGE DEMO MODE
-              </span>
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* Main Responsive Navigation Navbar */}
       <nav className="sticky top-0 z-40 bg-[#050505]/90 backdrop-blur-md border-b border-white/[0.08]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1088,7 +1149,7 @@ export default function App() {
 
                         {/* Real Cloudflare Turnstile Integration */}
                         <div className="py-1">
-                          <CloudflareTurnstile onVerified={setTurnstileVerified} verified={turnstileVerified} />
+                          <CloudflareTurnstile onVerified={setTurnstileToken} verified={turnstileVerified} />
                         </div>
 
                         <button
@@ -1121,19 +1182,25 @@ export default function App() {
                     <header className="relative pt-12 pb-8 flex flex-col lg:flex-row items-center gap-12 text-left">
                       <div className="flex-1 space-y-6 relative z-20">
                         
-                        <div className="inline-flex items-center space-x-2 bg-white/[0.03] border border-white/10 px-3.5 py-1.5 rounded-full">
-                          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
-                          <span className="text-[10px] uppercase tracking-widest font-extrabold text-zinc-300 font-mono">
-                            Manual Broker Escrow Shield
+                        <div className="inline-flex flex-wrap gap-2">
+                          <span className="flex items-center gap-1.5 bg-white/[0.03] border border-white/10 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-extrabold text-zinc-300 font-mono">
+                            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping shrink-0" />
+                            Verified Sellers
+                          </span>
+                          <span className="flex items-center gap-1.5 bg-white/[0.03] border border-white/10 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-extrabold text-zinc-300 font-mono">
+                            Human Broker Support
+                          </span>
+                          <span className="flex items-center gap-1.5 bg-white/[0.03] border border-white/10 px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-extrabold text-zinc-300 font-mono">
+                            Secure Deal Workflow
                           </span>
                         </div>
 
                         <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none text-white font-display uppercase">
-                          Premium IDs. <span className="text-blue-500 block">Vetted Escrow.</span>
+                          Buy Premium <span className="text-blue-500 block">Digital IDs Securely.</span>
                         </h1>
 
                         <p className="text-base sm:text-lg text-zinc-400 max-w-lg leading-relaxed font-serif font-light">
-                          Broker premium digital assets, OG usernames, domains, and channels safely. Our experienced manual verification pipelines isolate classic handover vulnerabilities.
+                          Verified premium usernames, digital handles, and brandable identities with human broker-assisted transfers. Let our experts orchestrate safe transactions with zero counterparty risk.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4 pt-2">
@@ -1141,30 +1208,14 @@ export default function App() {
                             onClick={() => setActiveTab('browse')}
                             className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-blue-500/10 text-center cursor-pointer"
                           >
-                            Browse Vault Registry
+                            Browse Premium IDs
                           </button>
                           <button
                             onClick={() => setActiveTab('sell')}
                             className="px-8 py-4 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-zinc-200 font-bold text-xs uppercase tracking-widest rounded-xl transition-colors text-center cursor-pointer"
                           >
-                            Submit Asset Listing
+                            Sell Your ID
                           </button>
-                        </div>
-
-                        {/* Flat facts */}
-                        <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/[0.04]">
-                          <div>
-                            <h4 className="text-xs font-bold text-zinc-300">Brokered Security</h4>
-                            <span className="text-[10px] text-zinc-500 block">Risk minimisation</span>
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-zinc-300">Detailed Vetting</h4>
-                            <span className="text-[10px] text-zinc-500 block font-semibold text-blue-500">Duplicate prevention</span>
-                          </div>
-                          <div>
-                            <h4 className="text-xs font-bold text-zinc-300 font-mono">₹ Indian Rupees</h4>
-                            <span className="text-[10px] text-zinc-500 block">Seamless INR payments</span>
-                          </div>
                         </div>
 
                       </div>
@@ -1175,28 +1226,28 @@ export default function App() {
                         <div className="relative border border-white/[0.1] bg-[#0c0c0e]/80 p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6">
                           
                           <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                            <span className="text-[10px] font-mono tracking-wider font-bold text-zinc-500 uppercase">Live Vault Case #8821</span>
-                            <span className="px-2.5 py-0.5 text-[9px] uppercase tracking-widest font-black text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded">
-                              UNDER CLEARANCE
+                            <span className="text-[10px] font-mono tracking-wider font-bold text-zinc-500 uppercase">Broker Desk File #8821</span>
+                            <span className="px-2.5 py-0.5 text-[9px] uppercase tracking-widest font-black text-blue-500 bg-blue-500/10 border border-blue-500/20 rounded">
+                              EXPERT VERIFIED
                             </span>
                           </div>
 
                           <div className="flex items-center justify-between gap-4">
                             <div>
-                              <span className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">@nexus</span>
-                              <span className="block text-[10px] text-zinc-500">Instagram Luxury Handle</span>
+                               <span className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">@nexus</span>
+                              <span className="block text-[10px] text-zinc-500">Instagram Premium Handle</span>
                             </div>
                             <div className="text-right">
                               <span className="text-xl font-bold font-mono text-emerald-400">Make an Offer</span>
-                              <span className="block text-[10px] text-zinc-500 tracking-wider font-mono uppercase font-semibold">Vetting Cleared</span>
+                              <span className="block text-[10px] text-zinc-500 tracking-wider font-mono uppercase font-semibold">Ready for Broker Transfer</span>
                             </div>
                           </div>
 
                           <div className="p-4 bg-zinc-950/80 border border-white/5 rounded-xl space-y-2 text-left">
                             <p className="text-xs text-zinc-400 leading-relaxed italic">
-                              &ldquo;Original registration coordinate mapping checked, devices history cleared. Handover released safely according to escrow checklist benchmarks.&rdquo;
+                              &ldquo;Ownership credentials validated. Device history, original registration parameters, and brand risk checked. Safe transfer checklist ready for secure broker clearance.&rdquo;
                             </p>
-                            <span className="block text-[9px] font-mono font-bold text-blue-500 uppercase tracking-widest">— Escrow Protocol Log</span>
+                            <span className="block text-[9px] font-mono font-bold text-blue-500 uppercase tracking-widest">— Safe Transfer Checklist Log</span>
                           </div>
 
                         </div>
@@ -1288,6 +1339,76 @@ export default function App() {
                             }}
                           />
                         ))}
+                      </div>
+                    </section>
+
+                    {/* Trust Pillar Section: IDsvault vs. Direct Transfers */}
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 border-t border-b border-white/5 py-12 text-left">
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-mono uppercase tracking-widest text-blue-500 font-extrabold">Professional Security Audit</span>
+                          <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Why Choose IDsvault?</h2>
+                        </div>
+                        <p className="text-sm text-zinc-400 leading-relaxed font-serif font-light">
+                          Orchestrating premium digital handle handovers is a precision process. Standard platform trades carry hidden backdoors, social engineering vulnerabilities, and severe financial risk. IDsvault eliminates transaction friction through proven manual brokerage and verification safeguards.
+                        </p>
+                        <div className="space-y-4 text-xs font-mono">
+                          <div className="flex gap-3 items-start p-3.5 bg-zinc-950/40 border border-white/5 rounded-xl">
+                            <span className="text-emerald-400 font-bold shrink-0">✔</span>
+                            <div>
+                              <h4 className="text-zinc-200 font-bold font-mono uppercase mb-0.5">Absolute Confidentiality</h4>
+                              <p className="text-zinc-500 font-sans">Deal details, buyer credentials, and seller payouts remain entirely private and off-the-grid.</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 items-start p-3.5 bg-zinc-950/40 border border-white/5 rounded-xl">
+                            <span className="text-emerald-400 font-bold shrink-0">✔</span>
+                            <div>
+                              <h4 className="text-zinc-200 font-bold font-mono uppercase mb-0.5">Curated Marketplace Database</h4>
+                              <p className="text-zinc-500 font-sans">We filter out generic numeric clutter and recycled handles, featuring only certified, verified-original premium identities.</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 items-start p-3.5 bg-zinc-950/40 border border-white/5 rounded-xl">
+                            <span className="text-emerald-400 font-bold shrink-0">✔</span>
+                            <div>
+                              <h4 className="text-zinc-200 font-bold font-mono uppercase mb-0.5">Structured Payment Workflow</h4>
+                              <p className="text-zinc-500 font-sans">Funds are secured in transaction workflow and only released to sellers after platform handoff checklists are strictly verified by a human broker.</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6 bg-[#09090b] border border-white/5 p-6 sm:p-8 rounded-2xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 h-24 w-24 bg-red-500/5 blur-3xl pointer-events-none" />
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-mono uppercase tracking-widest text-red-400 font-extrabold">Security Advisory</span>
+                          <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">Why not deal directly?</h2>
+                        </div>
+                        <p className="text-xs text-zinc-400 leading-relaxed font-serif font-light">
+                          Direct peer-to-peer digital trades are the leading cause of digital identity theft and payment fraud:
+                        </p>
+                        <div className="space-y-4 text-xs">
+                          <div className="flex gap-2 items-start border-l-2 border-red-500/20 pl-3.5">
+                            <span className="text-red-400 font-bold">✖</span>
+                            <div className="text-[#a0a0a5] leading-relaxed">
+                              <span className="text-white font-bold block text-sm">Account Callback Fraud</span>
+                              Dishonest sellers can reclaim accounts days after transfer by deploying original registration emails or recovery codes.
+                            </div>
+                          </div>
+                          <div className="flex gap-2 items-start border-l-2 border-red-500/20 pl-3.5">
+                            <span className="text-red-400 font-bold">✖</span>
+                            <div className="text-[#a0a0a5] leading-relaxed">
+                              <span className="text-white font-bold block text-sm">Left-Over Mail Backdoors</span>
+                              Hidden recovery phone linkages or forgotten email API permissions can allow bypasses even after password and 2FA resets.
+                            </div>
+                          </div>
+                          <div className="flex gap-2 items-start border-l-2 border-red-500/20 pl-3.5">
+                            <span className="text-red-400 font-bold">✖</span>
+                            <div className="text-[#a0a0a5] leading-relaxed">
+                              <span className="text-white font-bold block text-sm">Double-Spending & Collusion</span>
+                              Unverified middlemen or fake broker handles frequently collude to collect payments and ghost.
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </section>
 
@@ -1807,6 +1928,10 @@ export default function App() {
                              <div className="p-3.5 bg-zinc-900/60 border border-white/5 rounded-xl text-[11px] text-zinc-400 leading-relaxed">
                                Success-Based Brokerage applies. Rest assured; fees are adjusted only after a successful supervised deal. Premium Broker-Assisted Sales carry zero upfront listing costs.
                              </div>
+
+                             <div className="pt-2">
+                               <CloudflareTurnstile onVerified={(token) => setTurnstileToken(token)} verified={turnstileVerified} />
+                             </div>
                           </div>
                         )}
 
@@ -1849,7 +1974,7 @@ export default function App() {
                           ) : (
                             <button
                               type="submit"
-                              disabled={!sellDeclaration}
+                              disabled={!sellDeclaration || !turnstileToken}
                               className="px-6 py-3 bg-emerald-600 disabled:bg-emerald-800 disabled:opacity-50 hover:bg-emerald-700 text-white text-xs font-bold tracking-wider uppercase rounded-xl transition-all hover:scale-[1.01] cursor-pointer"
                             >
                               Agree & List Submission
@@ -1951,9 +2076,14 @@ export default function App() {
                           />
                         </div>
 
+                        <div className="pt-2">
+                          <CloudflareTurnstile onVerified={(token) => setTurnstileToken(token)} verified={turnstileVerified} />
+                        </div>
+
                         <button
                           type="submit"
-                          className="w-full py-4 bg-white hover:bg-zinc-200 text-black text-xs font-bold tracking-widest uppercase rounded-xl transition-all mt-4 cursor-pointer"
+                          disabled={!turnstileToken}
+                          className="w-full py-4 bg-white disabled:bg-zinc-800 disabled:text-zinc-500 hover:bg-zinc-200 text-black text-xs font-bold tracking-widest uppercase rounded-xl transition-all mt-4 cursor-pointer"
                         >
                           Lock Search Commission
                         </button>
@@ -2052,72 +2182,29 @@ export default function App() {
                         </div>
 
                         <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-6 space-y-4">
-                          {/* Authentication Selection Mode Tabs */}
-                          <div className="grid grid-cols-2 gap-2 bg-[#050505] p-1 rounded-xl border border-white/5 text-[10px] font-mono">
-                            <button
-                              type="button"
-                              onClick={() => setAdminAuthMode('passkey')}
-                              className={`py-2 px-1.5 font-bold uppercase rounded-lg transition-all ${
-                                adminAuthMode === 'passkey' 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'text-zinc-500 hover:text-zinc-300'
-                              }`}
-                            >
-                              Standard Passkey
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setAdminAuthMode('supabase')}
-                              className={`py-2 px-1.5 font-bold uppercase rounded-lg transition-all ${
-                                adminAuthMode === 'supabase' 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'text-zinc-500 hover:text-zinc-300'
-                              }`}
-                            >
-                              Supabase Auth DB
-                            </button>
-                          </div>
-
                           <form onSubmit={handleAdminAuthSubmit} className="space-y-4 text-left">
-                            {adminAuthMode === 'supabase' ? (
-                              <>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Supervisor Email</label>
-                                  <input
-                                    type="email"
-                                    required
-                                    value={adminEmail}
-                                    onChange={(e) => setAdminEmail(e.target.value)}
-                                    placeholder="supervisor@idsvault.vip"
-                                    className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800 font-mono"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Account Password</label>
-                                  <input
-                                    type="password"
-                                    required
-                                    value={adminPass}
-                                    onChange={(e) => setAdminPass(e.target.value)}
-                                    placeholder="Enter your password"
-                                    className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800"
-                                  />
-                                </div>
-                              </>
-                            ) : (
-                              <div>
-                                <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Terminal Passkey</label>
-                                <input
-                                  type="password"
-                                  required
-                                  value={adminPass}
-                                  onChange={(e) => setAdminPass(e.target.value)}
-                                  placeholder="Enter access code (e.g. adminpass)"
-                                  className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800"
-                                />
-                                <span className="block text-[9px] text-zinc-600 font-mono mt-1 text-center">Test key: <span className="text-zinc-400 font-bold">adminpass</span></span>
-                              </div>
-                            )}
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Supervisor Email</label>
+                              <input
+                                type="email"
+                                required
+                                value={adminEmail}
+                                onChange={(e) => setAdminEmail(e.target.value)}
+                                placeholder="supervisor@idsvault.vip"
+                                className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Account Password</label>
+                              <input
+                                type="password"
+                                required
+                                value={adminPass}
+                                onChange={(e) => setAdminPass(e.target.value)}
+                                placeholder="Enter your password"
+                                className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800"
+                              />
+                            </div>
 
                             <button
                               type="submit"

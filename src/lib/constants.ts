@@ -172,24 +172,24 @@ export const FAQ_SEEDS = [
     a: "We manually coordinate all device details and recovery email switchovers in a supervised private escrow environment. Our brokers examine platform logs and lock recovery pathways to guarantee 100% security with zero backdoor risks." 
   },
   { 
-    q: "Why pay GETIDS instead of the seller directly?", 
-    a: "Direct buying is highly susceptible to scams, recovery recaptures, or payment fraud. GETIDS acts as an official neutral trustee. We hold buyer funds in protected bank corridors and verify all recovery coordinates are locked down before releasing any seller payouts." 
+    q: "Why pay IDsvault instead of the seller directly?", 
+    a: "Direct buying is highly susceptible to scams, recovery recaptures, or payment fraud. IDsvault acts as an official neutral trustee. We hold buyer funds in protected bank corridors and verify all recovery coordinates are locked down before releasing any seller payouts." 
   },
   { 
     q: "What if the transfer fails or platform locks occur?", 
-    a: "All buyer funds remain in our protected escrow custody. If a seller fails handovers or cannot verify immediate control, the transaction is canceled immediately and your funds are refunded 100% with no hidden fees." 
+    a: "All buyer funds remain in our protected custody. If a seller fails handovers or cannot verify immediate control, the transaction is canceled immediately and your funds are refunded 100% with no hidden fees." 
   },
   { 
     q: "How are sellers vetted and verified?", 
     a: "Sellers must submit multi-factor control proofs, platform configuration logs, and clear registration checks. Our internal brokerage desk manually validates administrative control of every handle before approving any public listing." 
   },
   { 
-    q: "What qualifies as premium on GETIDS?", 
+    q: "What qualifies as premium on IDsvault?", 
     a: "We accept short handles (under 6 characters), generic dictionary labels, and brandable industry terms (e.g., finance, media, crypto). Random numeric structures, spam IDs, or direct trademark impersonations are strictly blacklisted to protect registry quality." 
   },
   { 
     q: "Can buyers contact sellers directly?", 
-    a: "No. Direct buyer-seller interactions are prohibited to prevent out-of-bounds dealing, coordinate leaks, and payment scams. All communications must run through supervised GETIDS broker rooms for your safety." 
+    a: "No. Direct buyer-seller interactions are prohibited to prevent out-of-bounds dealing, coordinate leaks, and payment scams. All communications must run through supervised IDsvault broker rooms for your safety." 
   },
   { 
     q: "How long do deals and transfers take?", 
@@ -197,10 +197,10 @@ export const FAQ_SEEDS = [
   },
   { 
     q: "What if a listing is discovered to be fake?", 
-    a: "Our strict listing gate prevents invalid registrations from reaching the marketplace. If a seller's credentials change post-listing, we instantly freeze the dossier, reject the listing, and return any buyer deposits." 
+    a: "Our strict listing gate prevents invalid registrations from reaching the marketplace. If a seller's credentials change post-listing, we instantly freeze the listing, reject the seller registration, and return any buyer deposits." 
   },
   { 
-    q: "Can GETIDS source specific unavailable usernames?", 
+    q: "Can IDsvault source specific unavailable usernames?", 
     a: "Yes. Our bespoke Outreach Sourcing Desk holds proprietary channels to map, contact, and negotiate digital acquisitions from inactive private registrants worldwide. Start a 'Commission Hunt' request to deploy an agent." 
   }
 ];

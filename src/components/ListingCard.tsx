@@ -57,14 +57,14 @@ export function getDisplayPriceAndCTA(item: ListingItem): { displayPrice: string
     case 'CONFIDENTIAL':
       return {
         displayPrice: 'Confidential Valuation',
-        subtitle: 'Private Brokered Deal Escrow',
+        subtitle: 'Private Broker-Assisted Transfer',
         ctaLabel: 'Request Confidential Deal'
       };
     case 'MAKE_OFFER':
     default:
       return {
         displayPrice: 'Make Offer • Live Handover',
-        subtitle: 'Manual Escrow Verified',
+        subtitle: 'Secure Deal Workflow',
         ctaLabel: 'Talk to Broker'
       };
   }
@@ -197,15 +197,6 @@ export default function ListingCard({ item, onClick, onQuickDeal }: ListingCardP
             <span>{ctaLabel}</span>
             <ArrowUpRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </button>
-          
-          {onQuickDeal && (
-            <button
-              onClick={(e) => onQuickDeal(e, item)}
-              className="w-full py-1.5 bg-zinc-950 text-[9px] uppercase text-zinc-400 hover:text-blue-400 border border-white/5 hover:border-blue-500/20 hover:bg-blue-950/20 font-bold rounded tracking-widest transition-colors cursor-pointer"
-            >
-              [ START SECURE DEAL ]
-            </button>
-          )}
         </div>
       </div>
     </div>

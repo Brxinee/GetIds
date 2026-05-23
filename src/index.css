@@ -8,8 +8,28 @@
   --font-serif: "Playfair Display", Georgia, serif;
 }
 
-body {
-  background-color: #0f172a;
+html, body {
+  background-color: #050505;
   color: #f1f5f9;
   font-family: var(--font-sans);
+  
+  /* Lock touch gestures to standard panning only to prevent zoom in/out scales */
+  touch-action: pan-x pan-y;
+  
+  /* Disable accidental layout text highlights */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  
+  /* Disable standard mobile web callouts on long-press */
+  -webkit-touch-callout: none;
+}
+
+/* Re-allow selections inside logical interactive field containers */
+input, textarea, select, [contenteditable="true"], .selectable, .selectable * {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
 }
