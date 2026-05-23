@@ -60,8 +60,44 @@ app.get('/sitemap.xml', (req, res) => {
 // Clean SEO robots.txt handler
 app.get('/robots.txt', (req, res) => {
   res.header('Content-Type', 'text/plain');
-  res.send(`User-agent: *
+  res.send(`# Welcome to IDsvault Robots.txt
+# High-priority access configuration for Web Crawlers, LLMs, and AI Search Agents
+
+User-agent: *
 Allow: /
+Disallow: /api/submit-seller
+Disallow: /api/submit-buyer
+Disallow: /api/submit-request
+
+# Specific permissions for AI agents to crawl and provide real-time search citations
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+
+User-agent: Applebot-extended
+Allow: /
+Disallow: /api/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+
 Sitemap: https://get-ids-six.vercel.app/sitemap.xml`);
 });
 

@@ -21,30 +21,46 @@ export interface SEOMetadata {
 export const initGA = (measurementId = 'G-IDSVAULT88') => {
   if (typeof window === 'undefined') return;
 
-  // Insert GA scripts to doc head if not already loaded
-  if (!document.getElementById('google-analytics-script')) {
-    const script1 = document.createElement('script');
-    script1.async = true;
-    script1.id = 'google-analytics-script';
-    script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
-    document.head.appendChild(script1);
+  // Ensure old scripts are purged if the measurement ID changes
+  const oldScript1 = document.getElementById('google-analytics-script');
+  const oldScript2 = document.getElementById('google-analytics-config-script');
+  if (oldScript1) oldScript1.remove();
+  if (oldScript2) oldScript2.remove();
 
-    const script2 = document.createElement('script');
-    script2.innerHTML = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${measurementId}', { 'send_page_view': false });
-    `;
-    document.head.appendChild(script2);
-  }
+  const script1 = document.createElement('script');
+  script1.async = true;
+  script1.id = 'google-analytics-script';
+  script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+  document.head.appendChild(script1);
+
+  const script2 = document.createElement('script');
+  script2.id = 'google-analytics-config-script';
+  script2.innerHTML = `
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '${measurementId}', { 'send_page_view': false });
+  `;
+  document.head.appendChild(script2);
 };
 
 // Log GA Event safely
 export const logGAEvent = (eventName: string, params?: Record<string, any>) => {
-  if (typeof window !== 'undefined' && (window as any).gtag) {
-    (window as any).gtag('event', eventName, params);
+  if (typeof window !== 'undefined') {
+    if ((window as any).gtag) {
+      (window as any).gtag('event', eventName, params);
+    }
     console.log(`[GA EVENT LOGGED]: ${eventName}`, params);
+    
+    // Dispatch custom event for real-time reactive visual logs in workspace hub
+    const event = new CustomEvent('ga_log_captured', {
+      detail: {
+        eventName,
+        params,
+        timestamp: new Date().toLocaleTimeString()
+      }
+    });
+    window.dispatchEvent(event);
   }
 };
 

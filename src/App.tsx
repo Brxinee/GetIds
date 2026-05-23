@@ -34,7 +34,11 @@ import {
   User,
   Database,
   CheckSquare,
-  DollarSign
+  DollarSign,
+  FileSpreadsheet,
+  Activity,
+  Settings,
+  BarChart
 } from 'lucide-react';
 
 import { 
@@ -58,6 +62,17 @@ import {
   isSupabaseConnected,
   supabase
 } from './lib/supabase';
+
+import { 
+  initAuth, 
+  googleSignIn, 
+  logoutSession, 
+  createSpreadsheet, 
+  formatLedgerHeaders, 
+  appendToLedgerSheet, 
+  fetchLedgerSheetRows, 
+  exportListingsToLedger 
+} from './lib/googleSheets';
 
 import { 
   INITIAL_INV_SEEDS, 
@@ -113,6 +128,201 @@ export default function App() {
     return [];
   });
 
+  // Google Sheets Workspace integration state
+  const [sheetsUser, setSheetsUser] = useState<any>(null);
+  const [sheetsAccessToken, setSheetsAccessToken] = useState<string | null>(null);
+  const [syncSpreadsheetId, setSyncSpreadsheetId] = useState<string | null>(() => {
+    return localStorage.getItem('ids_spreadsheet_id') || null;
+  });
+  const [syncSpreadsheetUrl, setSyncSpreadsheetUrl] = useState<string | null>(() => {
+    return localStorage.getItem('ids_spreadsheet_url') || null;
+  });
+  const [syncedRows, setSyncedRows] = useState<any[][] | null>(null);
+  const [isSyncingSheets, setIsSyncingSheets] = useState<boolean>(false);
+  const [sheetsError, setSheetsError] = useState<string | null>(null);
+  const [syncSuccessToast, setSyncSuccessToast] = useState<string | null>(null);
+
+  // Monitor Google Sheets auth state changes
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        setSheetsUser(user);
+        setSheetsAccessToken(token);
+        setSheetsError(null);
+      },
+      () => {
+        setSheetsUser(null);
+        setSheetsAccessToken(null);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const handleSheetsWebLogin = async () => {
+    setSheetsError(null);
+    try {
+      const res = await googleSignIn();
+      if (res) {
+        setSheetsUser(res.user);
+        setSheetsAccessToken(res.accessToken);
+        setSyncSuccessToast("Successfully connected to Google Workspace Sheets!");
+        setTimeout(() => setSyncSuccessToast(null), 4000);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSheetsError(err.message || "Sign-in failed. Please retry.");
+    }
+  };
+
+  const handleSheetsWebLogout = async () => {
+    try {
+      await logoutSession();
+      setSheetsUser(null);
+      setSheetsAccessToken(null);
+      setSyncedRows(null);
+      setSyncSpreadsheetId(null);
+      setSyncSpreadsheetUrl(null);
+      localStorage.removeItem('ids_spreadsheet_id');
+      localStorage.removeItem('ids_spreadsheet_url');
+      setSyncSuccessToast("Successfully disconnected Google account.");
+      setTimeout(() => setSyncSuccessToast(null), 4000);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleFetchLiveSpreadsheetRows = async (targetId?: string, targetToken?: string) => {
+    const currentId = targetId || syncSpreadsheetId;
+    const currentToken = targetToken || sheetsAccessToken;
+    if (!currentId || !currentToken) return;
+
+    try {
+      const rows = await fetchLedgerSheetRows(currentToken, currentId);
+      if (rows) {
+        setSyncedRows(rows);
+      }
+    } catch (err) {
+      console.error("Failed to load rows from connected Google Sheet", err);
+    }
+  };
+
+  // Pre-load sheet rows if already connected
+  useEffect(() => {
+    if (sheetsAccessToken && syncSpreadsheetId) {
+      handleFetchLiveSpreadsheetRows();
+    }
+  }, [sheetsAccessToken, syncSpreadsheetId]);
+
+  const handleCreateNewSpreadsheet = async () => {
+    if (!sheetsAccessToken) return;
+    setIsSyncingSheets(true);
+    setSheetsError(null);
+    try {
+      const title = `IDsvault Secure Brokerage Ledger - ${new Date().toLocaleDateString()}`;
+      const sheetDetail = await createSpreadsheet(sheetsAccessToken, title);
+      
+      setSyncSpreadsheetId(sheetDetail.id);
+      setSyncSpreadsheetUrl(sheetDetail.url);
+      localStorage.setItem('ids_spreadsheet_id', sheetDetail.id);
+      localStorage.setItem('ids_spreadsheet_url', sheetDetail.url);
+
+      const formatted = await formatLedgerHeaders(sheetsAccessToken, sheetDetail.id);
+      if (formatted) {
+        setSyncSuccessToast("Ledger Spreadsheet generated & formatted in GDrive!");
+      } else {
+        setSyncSuccessToast("Spreadsheet generated, but standard formatting failed.");
+      }
+      setTimeout(() => setSyncSuccessToast(null), 5000);
+      
+      // Load current listings bulk import to start off!
+      await handleBulkExportCurrentListings(sheetDetail.id, sheetsAccessToken);
+      
+      // Load rows
+      await handleFetchLiveSpreadsheetRows(sheetDetail.id, sheetsAccessToken);
+    } catch (err: any) {
+      console.error(err);
+      setSheetsError(`Spreadsheet generation failed: ${err.message}`);
+    } finally {
+      setIsSyncingSheets(false);
+    }
+  };
+
+  const handleBulkExportCurrentListings = async (targetId?: string, targetToken?: string) => {
+    const currentId = targetId || syncSpreadsheetId;
+    const currentToken = targetToken || sheetsAccessToken;
+    if (!currentId || !currentToken) return;
+
+    setIsSyncingSheets(true);
+    setSheetsError(null);
+    try {
+      const exportedCount = await exportListingsToLedger(currentToken, currentId, listings);
+      if (exportedCount > 0) {
+        setSyncSuccessToast(`Successfully synced \& exported ${exportedCount} premium listings into your Google Sheet!`);
+        setTimeout(() => setSyncSuccessToast(null), 5000);
+        await handleFetchLiveSpreadsheetRows(currentId, currentToken);
+      } else {
+        setSheetsError("No listings were exported. Please check sheet configuration.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSheetsError(`Listing sync failed: ${err.message}`);
+    } finally {
+      setIsSyncingSheets(false);
+    }
+  };
+
+  // Google Analytics Property Settings state
+  const [gaAccountId, setGaAccountId] = useState<string>(() => {
+    return localStorage.getItem('ids_ga_account_id') || '344958965';
+  });
+  const [gaPropertyId, setGaPropertyId] = useState<string>(() => {
+    return localStorage.getItem('ids_ga_property_id') || '531107131';
+  });
+  const [gaMeasurementId, setGaMeasurementId] = useState<string>(() => {
+    return localStorage.getItem('ids_ga_measurement_id') || 'G-531107131';
+  });
+  const [gaSuccessToast, setGaSuccessToast] = useState<string | null>(null);
+
+  const handleUpdateGAConfig = (accountId: string, propertyId: string, measurementId: string) => {
+    setGaAccountId(accountId);
+    setGaPropertyId(propertyId);
+    setGaMeasurementId(measurementId);
+    localStorage.setItem('ids_ga_account_id', accountId);
+    localStorage.setItem('ids_ga_property_id', propertyId);
+    localStorage.setItem('ids_ga_measurement_id', measurementId);
+    initGA(measurementId);
+    setGaSuccessToast("Google Analytics configuration updated & reinitialized!");
+    setTimeout(() => setGaSuccessToast(null), 4000);
+  };
+
+  // Google Analytics Event Interceptor Logs State
+  const [gaCapturedLogs, setGaCapturedLogs] = useState<Array<{ timestamp: string; eventName: string; params: any }>>([]);
+
+  useEffect(() => {
+    const handleGaLog = (e: any) => {
+      const { eventName, params, timestamp } = e.detail;
+      setGaCapturedLogs(prev => [
+        { timestamp, eventName, params },
+        ...prev
+      ].slice(0, 5)); // Keep last 5 rows for space discipline
+    };
+    window.addEventListener('ga_log_captured', handleGaLog);
+    return () => window.removeEventListener('ga_log_captured', handleGaLog);
+  }, []);
+
+  // Temporary GA edit inputs state
+  const [gaInputAccount, setGaInputAccount] = useState<string>(gaAccountId);
+  const [gaInputProperty, setGaInputProperty] = useState<string>(gaPropertyId);
+  const [gaInputMeasurement, setGaInputMeasurement] = useState<string>(gaMeasurementId);
+  const [isGaSettingsEditing, setIsGaSettingsEditing] = useState<boolean>(false);
+
+  // Sync temp inputs when states change
+  useEffect(() => {
+    setGaInputAccount(gaAccountId);
+    setGaInputProperty(gaPropertyId);
+    setGaInputMeasurement(gaMeasurementId);
+  }, [gaAccountId, gaPropertyId, gaMeasurementId]);
+
   // Hydration loop
   useEffect(() => {
     async function loadData() {
@@ -134,8 +344,8 @@ export default function App() {
 
   // Load GA tracking & SEO on load
   useEffect(() => {
-    initGA(); // Boots Google Analytics with default G-IDSVAULT88 measurement ID
-  }, []);
+    initGA(gaMeasurementId); // Boots Google Analytics with configured measurement ID
+  }, [gaMeasurementId]);
 
   // Track dynamic route changes as virtual pageviews and update SEO tags
   useEffect(() => {
@@ -447,6 +657,22 @@ export default function App() {
       // Hydrate local states
       const updated = [newSub, ...submissions];
       await syncSubmissions(updated);
+
+      // Auto-log to Google Sheets if connected
+      if (sheetsAccessToken && syncSpreadsheetId) {
+        const row = [
+          new Date().toLocaleString(),
+          `@${sellUsername.trim().replace('@', '')}`,
+          sellPlatform.toUpperCase(),
+          `$${parseFloat(sellAskingPrice).toLocaleString()}`,
+          'Submission Queued (Pending Verification)',
+          'Auto-Assigned Desk Officer',
+          `https://idsvault.in/?id=${subId}`
+        ];
+        appendToLedgerSheet(sheetsAccessToken, syncSpreadsheetId, row)
+          .then(() => handleFetchLiveSpreadsheetRows(syncSpreadsheetId, sheetsAccessToken))
+          .catch(err => console.error("Sheets auto append failed", err));
+      }
       
       const msg = buildSellerMessage({
         username: sellUsername,
@@ -612,6 +838,22 @@ export default function App() {
 
       const updated = [newDeal, ...deals];
       await syncDeals(updated);
+
+      // Auto-log to Google Sheets if connected
+      if (sheetsAccessToken && syncSpreadsheetId) {
+        const row = [
+          new Date().toLocaleString(),
+          `@${listingItem.username}`,
+          listingItem.platform.toUpperCase(),
+          `₹${agreedAmount.toLocaleString('en-IN')}`,
+          'Transaction Initiated (Live Escrow)',
+          'Auto-Assigned Senior Broker',
+          `https://idsvault.in/?id=${listingItem.id}`
+        ];
+        appendToLedgerSheet(sheetsAccessToken, syncSpreadsheetId, row)
+          .then(() => handleFetchLiveSpreadsheetRows(syncSpreadsheetId, sheetsAccessToken))
+          .catch(err => console.error("Sheets auto append failed", err));
+      }
 
       const displayInfo = getDisplayPriceAndCTA(listingItem);
       const contactMsg = buildBuyerMessage({
@@ -3143,6 +3385,419 @@ export default function App() {
                               No client-side direct hunter acquisition commissions loaded.
                             </div>
                           )}
+                        </div>
+
+                        {/* Real-time Google Workspace Sheets Synchronous Ledger Core */}
+                        <div id="google-sheets-sync-ledger" className="p-6 sm:p-8 bg-[#0c0c0e] border border-white/[0.08] rounded-2xl text-left relative overflow-hidden space-y-6 mt-12 border-t border-white/5 pt-8">
+                          <div className="absolute top-0 right-0 h-40 w-40 bg-indigo-600/5 blur-3xl pointer-events-none" />
+                          
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                {sheetsUser ? (
+                                  <span className="p-1 px-2 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping shrink-0" />
+                                    Google Workspace Live Sync Active
+                                  </span>
+                                ) : (
+                                  <span className="p-1 px-2 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] font-mono font-bold text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                                    Google Sheets Ledger Available
+                                  </span>
+                                )}
+                              </div>
+                              <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight font-mono flex items-center gap-2.5">
+                                <FileSpreadsheet className="w-5.5 h-5.5 text-emerald-500" />
+                                <span>Workspace Deal Ledger Sync</span>
+                              </h2>
+                              <p className="text-xs text-zinc-400 mt-1">
+                                Secure real-time transaction synchronization directly into your cloud spreadsheets.
+                              </p>
+                            </div>
+
+                            {/* Connection Controls */}
+                            <div>
+                              {!sheetsUser ? (
+                                <button
+                                  id="google-signin-btn"
+                                  onClick={handleSheetsWebLogin}
+                                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white rounded-lg text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-lg cursor-pointer"
+                                >
+                                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.69a5.74 5.74 0 0 1-2.49 3.77v3.12h4.02c2.34-2.16 3.69-5.32 3.69-8.74z"/>
+                                    <path fill="#34A853" d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-4.02-3.12c-1.11.74-2.53 1.18-3.94 1.18-3.03 0-5.6-2.05-6.51-4.82H1.31v3.23A12 12 0 0 0 12 24z"/>
+                                    <path fill="#FBBC05" d="M5.49 14.15A7.16 7.16 0 0 1 5.09 12c0-.75.13-1.47.37-2.15V6.62H1.31A12 12 0 0 0 0 12c0 2.1.55 4.07 1.51 5.8l3.98-3.65z"/>
+                                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.44-3.44A12 12 0 0 0 1.31 6.62l4.18 3.84c.91-2.77 3.48-4.71 6.51-4.71z"/>
+                                  </svg>
+                                  <span>Sign in with Google</span>
+                                </button>
+                              ) : (
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <div className="flex items-center gap-2 bg-[#09090b] border border-white/5 py-1 px-2.5 rounded-lg">
+                                    {sheetsUser.photoURL ? (
+                                      <img 
+                                        src={sheetsUser.photoURL} 
+                                        alt="User Profile" 
+                                        className="w-5 h-5 rounded-full" 
+                                        referrerPolicy="no-referrer"
+                                      />
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-full bg-blue-500/25 flex items-center justify-center text-[10px] text-blue-400 font-bold uppercase">
+                                        {sheetsUser.displayName?.charAt(0) || 'U'}
+                                      </div>
+                                    )}
+                                    <div className="text-left font-mono">
+                                      <span className="block text-[10px] font-bold text-white leading-none">{sheetsUser.displayName}</span>
+                                      <span className="block text-[8px] text-zinc-500 leading-none mt-0.5">{sheetsUser.email}</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    id="google-signout-btn"
+                                    onClick={handleSheetsWebLogout}
+                                    className="px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-zinc-500 hover:text-zinc-300 rounded-md text-[9px] font-semibold tracking-wider uppercase font-mono transition-colors shrink-0 cursor-pointer"
+                                  >
+                                    Logout
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Toast Notices inside Card */}
+                          {syncSuccessToast && (
+                            <div id="sheets-sync-toast" className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-mono flex items-center gap-2">
+                              <Check className="w-4 h-4 shrink-0 animate-bounce" />
+                              <span>{syncSuccessToast}</span>
+                            </div>
+                          )}
+
+                          {sheetsError && (
+                            <div id="sheets-error-banner" className="p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-mono flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 shrink-0" />
+                              <span>{sheetsError}</span>
+                            </div>
+                          )}
+
+                          {/* Dynamic Panel Flow based on OAuth sign-in */}
+                          {!sheetsUser ? (
+                            <div className="text-center py-8 px-4 bg-zinc-950/40 border border-white/5 rounded-xl space-y-3">
+                              <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto border border-emerald-500/20">
+                                <FileSpreadsheet className="w-6 h-6 text-emerald-400" />
+                              </div>
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">Sync Your Personal Brokerage Ledger</h4>
+                                <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+                                  Sign in with your Google account to automatically track digital handle acquisitions, seller verify queries, status revisions, and active catalog deal flows.
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-5">
+                              {/* Mapped Sheet Area */}
+                              {!syncSpreadsheetId ? (
+                                <div className="p-5 bg-zinc-950/60 border border-white/5 rounded-xl space-y-4">
+                                  <div className="space-y-1 text-left">
+                                    <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Step 2: Generate Active Cloud Spreadsheet Ledger</h4>
+                                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                                      Our secure broker processor will automatically deploy a formatted ledger spreadsheet inside your Google Drive, format custom columns under styling headers, and perform a live batch backfill of our catalog.
+                                    </p>
+                                  </div>
+                                  <button
+                                    id="create-ledger-btn"
+                                    onClick={handleCreateNewSpreadsheet}
+                                    disabled={isSyncingSheets}
+                                    className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black tracking-widest uppercase transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 cursor-pointer"
+                                  >
+                                    {isSyncingSheets ? (
+                                      <>
+                                        <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                                        <span>Deploying Spreadsheet Ledger...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FileSpreadsheet className="w-4 h-4 shrink-0" />
+                                        <span>Deploy Format & Sync Active Ledger</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-6">
+                                  
+                                  {/* Spreadsheet detail rows */}
+                                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-zinc-950/60 border border-white/5 p-4 rounded-xl items-center">
+                                    <div className="md:col-span-8 text-left space-y-1">
+                                      <span className="text-[9px] font-mono font-bold uppercase bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-emerald-400">
+                                        LIVE SYNC PORT ATTACHED
+                                      </span>
+                                      <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono leading-none pt-1">
+                                        Active Broker Ledger Spreadsheet
+                                      </h4>
+                                      <p className="font-mono text-[9px] text-zinc-500 break-all select-all">
+                                        ID: {syncSpreadsheetId}
+                                      </p>
+                                    </div>
+                                    <div className="md:col-span-4 flex flex-col sm:flex-row items-stretch sm:items-center md:justify-end gap-2 shrink-0">
+                                      <a
+                                        id="open-spreadsheet-link"
+                                        href={syncSpreadsheetUrl || undefined}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        referrerPolicy="no-referrer"
+                                        className="px-4 py-2 bg-[#0c0c0e] hover:bg-zinc-900 border border-white/10 text-zinc-200 hover:text-white rounded-lg text-xs font-bold font-mono tracking-wider transition-all flex items-center justify-center gap-1.5"
+                                      >
+                                        <span>Open Sheet</span>
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                      </a>
+                                      <button
+                                        id="bulk-sync-btn"
+                                        onClick={() => handleBulkExportCurrentListings()}
+                                        disabled={isSyncingSheets}
+                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                                      >
+                                        {isSyncingSheets ? (
+                                          <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                                        ) : (
+                                          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                                        )}
+                                        <span>Sync Listings</span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Google Sheets real live rows visualization */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">
+                                        Live Synced Sheet Logs (Last 5 Rows)
+                                      </h4>
+                                      <button 
+                                        id="refresh-spreadsheet-btn"
+                                        onClick={() => handleFetchLiveSpreadsheetRows()}
+                                        className="text-[9px] font-mono font-bold text-blue-500 hover:text-blue-400 uppercase tracking-widest cursor-pointer hover:underline"
+                                      >
+                                        Refresh entries
+                                      </button>
+                                    </div>
+
+                                    <div className="border border-white/5 rounded-xl bg-[#09090b] overflow-hidden">
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full text-left font-mono text-[10px]">
+                                          <thead>
+                                            <tr className="bg-[#0e0e11] text-zinc-400 border-b border-white/5 uppercase">
+                                              <th className="py-2.5 px-3">Log Timestamp</th>
+                                              <th className="py-2.5 px-3">Asset/ID Name</th>
+                                              <th className="py-2.5 px-3">Platform</th>
+                                              <th className="py-2.5 px-3">Price / Offer</th>
+                                              <th className="py-2.5 px-3">Status</th>
+                                              <th className="py-2.5 px-3">Desk Assignment</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-white/5">
+                                            {!syncedRows || syncedRows.length === 0 ? (
+                                              <tr>
+                                                <td colSpan={6} className="py-8 text-center text-zinc-600 text-[11px]">
+                                                  No spreadsheet entries logged yet. Try starting a buyer deal transfer, submitting a handle, or clicking &lsquo;Sync Listings&rsquo;!
+                                                </td>
+                                              </tr>
+                                            ) : (
+                                              syncedRows.slice(-5).reverse().map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-white/[0.02]">
+                                                  <td className="py-2.5 px-3 text-zinc-500 max-w-[120px] truncate">{row[0]}</td>
+                                                  <td className="py-2.5 px-3 font-semibold text-white">{row[1]}</td>
+                                                  <td className="py-2.5 px-3 text-zinc-400">{row[2]}</td>
+                                                  <td className="py-2.5 px-3 text-emerald-400 font-bold">{row[3]}</td>
+                                                  <td className="py-2.5 px-3">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider uppercase inline-block ${
+                                                      String(row[4]).includes('Initiated') || String(row[4]).includes('Queued') 
+                                                        ? 'bg-blue-500/10 border border-blue-500/15 text-blue-400' 
+                                                        : 'bg-emerald-500/10 border border-emerald-500/15 text-emerald-400'
+                                                    }`}>
+                                                      {row[4] || 'Logged'}
+                                                    </span>
+                                                  </td>
+                                                  <td className="py-2.5 px-3 text-zinc-400 max-w-[150px] truncate">{row[5] || 'Senior Specialist'}</td>
+                                                </tr>
+                                              ))
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Google Analytics 4 Real-time Integration Hub */}
+                        <div id="google-analytics-integration" className="p-6 sm:p-8 bg-[#0c0c0e] border border-white/[0.08] rounded-2xl text-left relative overflow-hidden space-y-6 mt-12 border-t border-white/5 pt-8">
+                          <div className="absolute top-0 right-0 h-40 w-40 bg-amber-500/5 blur-3xl pointer-events-none" />
+                          
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="p-1 px-2 rounded bg-amber-500/10 border border-amber-500/20 text-[9px] font-mono font-bold text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                                  GA4 Active Performance Stream
+                                </span>
+                              </div>
+                              <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight font-mono flex items-center gap-2.5">
+                                <BarChart className="w-5.5 h-5.5 text-amber-500" />
+                                <span>Google Analytics Audit Tracking</span>
+                              </h2>
+                              <p className="text-xs text-zinc-400 mt-1">
+                                Live system engagement monitoring using your telemetry keys.
+                              </p>
+                            </div>
+
+                            {/* Configuration toggle */}
+                            <div>
+                              <button
+                                id="toggle-ga-editing-btn"
+                                onClick={() => setIsGaSettingsEditing(!isGaSettingsEditing)}
+                                className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-white rounded-lg text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                                <span>{isGaSettingsEditing ? 'Cancel Edit' : 'Modify Credentials'}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {gaSuccessToast && (
+                            <div id="ga-success-toast" className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-xs font-mono flex items-center gap-2">
+                              <CheckSquare className="w-4 h-4 shrink-0 animate-bounce" />
+                              <span>{gaSuccessToast}</span>
+                            </div>
+                          )}
+
+                          {/* Display current GA coordinates */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-zinc-950/40 p-4 border border-white/5 rounded-xl">
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-mono text-zinc-500 block font-bold uppercase tracking-widest">Analytics Account ID</span>
+                              <span className="text-xs font-mono text-zinc-300 bg-[#060608] py-1 px-2 rounded border border-white/5 block w-full truncate">{gaAccountId}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-mono text-zinc-500 block font-bold uppercase tracking-widest">Property ID</span>
+                              <span className="text-xs font-mono text-zinc-300 bg-[#060608] py-1 px-2 rounded border border-white/5 block w-full truncate">{gaPropertyId}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-mono text-zinc-500 block font-bold uppercase tracking-widest">Measurement ID (Tag)</span>
+                              <span className="text-xs font-mono text-amber-400 bg-[#060608] py-1 px-2 rounded border border-amber-500/10 block w-full truncate font-bold">{gaMeasurementId}</span>
+                            </div>
+                          </div>
+
+                          {/* Custom credentials configurator forms */}
+                          {isGaSettingsEditing && (
+                            <div className="p-5 bg-zinc-950/70 border border-white/5 rounded-xl space-y-4">
+                              <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Update Google Analytics Credentials</h3>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 font-mono">Account ID</label>
+                                  <input
+                                    id="ga-input-account"
+                                    type="text"
+                                    className="w-full bg-[#070709] border border-white/10 text-white p-2.5 rounded-lg text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors"
+                                    value={gaInputAccount}
+                                    onChange={(e) => setGaInputAccount(e.target.value)}
+                                    placeholder="e.g. 344958965"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 font-mono">Property ID</label>
+                                  <input
+                                    id="ga-input-property"
+                                    type="text"
+                                    className="w-full bg-[#070709] border border-white/10 text-white p-2.5 rounded-lg text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors"
+                                    value={gaInputProperty}
+                                    onChange={(e) => setGaInputProperty(e.target.value)}
+                                    placeholder="e.g. 531107131"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 font-mono">Measurement ID (Tag)</label>
+                                  <input
+                                    id="ga-input-measurement"
+                                    type="text"
+                                    className="w-full bg-[#070709] border border-white/10 text-white p-2.5 rounded-lg text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors"
+                                    value={gaInputMeasurement}
+                                    onChange={(e) => setGaInputMeasurement(e.target.value)}
+                                    placeholder="G-XXXXXXXXXX"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 justify-end pt-2">
+                                <button
+                                  id="save-ga-config-btn"
+                                  onClick={() => {
+                                    handleUpdateGAConfig(gaInputAccount.trim(), gaInputProperty.trim(), gaInputMeasurement.trim());
+                                    setIsGaSettingsEditing(false);
+                                  }}
+                                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold tracking-wider uppercase transition-colors flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <Activity className="w-3.5 h-3.5" />
+                                  <span>Update Connection</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Decoded/captured live actions logging stream */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-ping shrink-0" />
+                                Live Triggered GA4 Event Payload stream
+                              </h4>
+                              <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
+                                Real-time Telemetry capture
+                              </span>
+                            </div>
+
+                            <div className="border border-white/5 rounded-xl bg-[#09090b] overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left font-mono text-[10px]">
+                                  <thead>
+                                    <tr className="bg-[#0e0e11] text-zinc-400 border-b border-white/5 uppercase">
+                                      <th className="py-2.5 px-3">Captured Timestamp</th>
+                                      <th className="py-2.5 px-3">Event Key Name</th>
+                                      <th className="py-2.5 px-3">Associated ID/Parameter</th>
+                                      <th className="py-2.5 px-3">Parameters Array Payload</th>
+                                      <th className="py-2.5 px-3">Tracking Server Link</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-white/5">
+                                    {gaCapturedLogs.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={5} className="py-6 text-center text-zinc-600 text-[11px]">
+                                          No events intercepted in this browser session. Hover/click menu pathways, search listings, or initiate deal flows to trigger real-time Google Analytics events!
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      gaCapturedLogs.map((log, idx) => (
+                                        <tr key={idx} className="hover:bg-white/[0.02]">
+                                          <td className="py-2.5 px-3 text-zinc-500">{log.timestamp}</td>
+                                          <td className="py-2.5 px-3 font-semibold text-amber-400">{log.eventName}</td>
+                                          <td className="py-2.5 px-3 text-zinc-300 truncate max-w-[120px]">
+                                            {log.params.username || log.params.target || log.params.page_title || 'General App Trigger'}
+                                          </td>
+                                          <td className="py-2.5 px-3 text-zinc-500 font-mono text-[9px] max-w-[200px] truncate" title={JSON.stringify(log.params)}>
+                                            {JSON.stringify(log.params)}
+                                          </td>
+                                          <td className="py-2.5 px-3">
+                                            <span className="text-zinc-600 animate-pulse text-[9px] font-bold">
+                                              dispatched // ssl
+                                            </span>
+                                          </td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
                       </div>
