@@ -23,11 +23,26 @@ import {
   ChevronRight,
   RefreshCw,
   HelpCircle,
-  FileText
+  FileText,
+  BarChart3,
+  Scissors,
+  Lock,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SAMPLE_DATASETS } from './data';
 import { ExtractedId, ParseHistoryItem } from './types';
+
+// Regex preset catalog for rapid security/validation assessment
+const REGEX_PRESETS = [
+  { name: 'AWS Access Credentials', pattern: 'AKIA[0-9A-Z]{16}', desc: 'AWS IAM access keys', selectedType: 'database_resource' },
+  { name: 'JSON Web Token (JWT)', pattern: 'eyJ[A-Za-z0-9-_=]+\\.[A-Za-z0-9-_=]+\\.[A-Za-z0-9-_.+/=]*', desc: 'Secure authorization tokens', selectedType: 'other' },
+  { name: 'Slack Hook URLs', pattern: 'https://hooks\\.slack\\.com/services/[T|B][A-Za-z0-9_]+/[B][A-Za-z0-9_]+/[A-Za-z0-9_]+', desc: 'Slack webhook active channels', selectedType: 'channel' },
+  { name: 'GitHub Auth Key', pattern: 'gh[opsu]_[a-zA-Z0-9]{36,40}', desc: 'GitHub token identifiers', selectedType: 'user' },
+  { name: 'Stripe Secret Hash', pattern: 'sk_live_[a-zA-Z0-9]{24,32}', desc: 'Production Stripe secret keys', selectedType: 'database_resource' },
+  { name: 'IPv4 Network Node', pattern: '\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b', desc: 'System network interface IP', selectedType: 'other' },
+  { name: 'IPv6 Network Node', pattern: '\\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\\b', desc: 'Next-gen network interface IP', selectedType: 'other' }
+];
 
 // Type mapping helper for styling badges and highlights
 const TYPE_CONFIG = {
@@ -74,6 +89,14 @@ export default function App() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['user', 'channel', 'database_resource', 'email', 'other']);
   const [customPattern, setCustomPattern] = useState<string>('');
   
+  // Regex Preset Explorer State
+  const [showRegexPresets, setShowRegexPresets] = useState<boolean>(false);
+
+  // Redactor Engine Parameters
+  const [redactionPrefix, setRedactionPrefix] = useState<string>('REDACTED');
+  const [redactTypes, setRedactTypes] = useState<string[]>(['user', 'channel', 'database_resource', 'email', 'other']);
+  const [copiedRedacted, setCopiedRedacted] = useState<boolean>(false);
+
   // App state
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<string>('');
@@ -89,7 +112,7 @@ export default function App() {
   // Search/Filters inside the results panel
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'table' | 'highlight' | 'history'>('table');
+  const [activeTab, setActiveTab] = useState<'table' | 'highlight' | 'visuals' | 'redactor' | 'history'>('table');
 
   // Copy feedbacks
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -307,6 +330,59 @@ export default function App() {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  // Automated log redaction compiler
+  const redactedText = useMemo(() => {
+    if (!inputText) return 'Awaiting source log stream feed...';
+    if (results.length === 0) return inputText;
+
+    let scrubbed = inputText;
+    // Sort identifiers by length descending to replace larger chunks first safely
+    const sortedResults = [...results].sort((a, b) => b.id.length - a.id.length);
+
+    sortedResults.forEach((item, idx) => {
+      if (redactTypes.includes(item.type)) {
+        const typeUpper = item.type.toUpperCase();
+        const replacement = `[${redactionPrefix}_${typeUpper}_${idx + 1}]`;
+        
+        // Escape characters for RegExp
+        const escapedId = item.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(escapedId, 'g');
+        scrubbed = scrubbed.replace(re, replacement);
+      }
+    });
+
+    return scrubbed;
+  }, [inputText, results, redactTypes, redactionPrefix]);
+
+  const handleCopyRedacted = () => {
+    navigator.clipboard.writeText(redactedText);
+    setCopiedRedacted(true);
+    setTimeout(() => setCopiedRedacted(false), 2000);
+  };
+
+  const handleDownloadRedacted = () => {
+    const dataBlob = new Blob([redactedText], { type: 'text/plain' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `getids-redacted-log-${Date.now()}.log`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Analytics calculator
+  const categoriesCount = useMemo(() => {
+    const counts = { user: 0, channel: 0, database_resource: 0, email: 0, other: 0 };
+    results.forEach(r => {
+      if (counts[r.type] !== undefined) {
+        counts[r.type]++;
+      } else {
+        counts.other++;
+      }
+    });
+    return counts;
+  }, [results]);
 
   // Filter and search computation
   const filteredResults = useMemo(() => {
@@ -574,13 +650,67 @@ export default function App() {
                   <span>Custom Regex Parameter <span className="text-zinc-600">(Optional)</span></span>
                   <span className="text-[9px] text-[#00ffc8] font-mono">Dynamic Pattern Hook</span>
                 </label>
-                <input
-                  type="text"
-                  value={customPattern}
-                  onChange={(e) => setCustomPattern(e.target.value)}
-                  placeholder="e.g. key_\\w{12,32} or stripe_\\w+"
-                  className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 text-xs text-[#00ffc8] font-mono focus:outline-none focus:border-indigo-500/50 leading-relaxed placeholder:text-zinc-700"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customPattern}
+                    onChange={(e) => setCustomPattern(e.target.value)}
+                    placeholder="e.g. key_\\w{12,32} or stripe_\\w+"
+                    className="w-full bg-black/60 border border-white/10 rounded-xl p-2.5 pr-10 text-xs text-[#00ffc8] font-mono focus:outline-none focus:border-indigo-500/50 leading-relaxed placeholder:text-zinc-700"
+                  />
+                  {customPattern && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomPattern('')}
+                      className="absolute right-2.5 top-2.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      title="Clear custom pattern"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* REGEX PRESET SELECTOR ACCORDION */}
+              <div className="border border-white/5 rounded-xl bg-black/30 p-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRegexPresets(!showRegexPresets)}
+                  className="w-full flex items-center justify-between text-xs font-mono text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer select-none"
+                >
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00ffc8]" />
+                    Regex Preset Library
+                  </span>
+                  <span className="text-[10px] text-zinc-500 bg-white/5 px-1.5 py-0.5 rounded border border-white/5">
+                    {showRegexPresets ? 'Hide' : 'Expand Library'}
+                  </span>
+                </button>
+
+                {showRegexPresets && (
+                  <div className="grid grid-cols-1 gap-1.5 pt-1.5 max-h-[190px] overflow-y-auto">
+                    {REGEX_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setCustomPattern(preset.pattern);
+                          if (!selectedTypes.includes(preset.selectedType)) {
+                            setSelectedTypes([...selectedTypes, preset.selectedType]);
+                          }
+                        }}
+                        className="text-left p-2 rounded-lg bg-black/50 hover:bg-neutral-900 border border-white/5 hover:border-indigo-500/20 transition-all text-[11px] group flex flex-col justify-between items-start cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="font-bold text-zinc-200 group-hover:text-indigo-400">{preset.name}</span>
+                          <span className="text-[9px] font-mono uppercase text-zinc-500">{preset.selectedType.replace('_', ' ')}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono truncate w-full italic mt-0.5">{preset.desc}</span>
+                        <code className="text-[8px] bg-black text-rose-300 px-1 py-0.5 rounded border border-white/5 font-mono max-w-full text-ellipsis overflow-hidden whitespace-nowrap mt-1 select-all">{preset.pattern}</code>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* ACTION CALL TO ACTION */}
@@ -618,8 +748,8 @@ export default function App() {
               
               <div>
                 {/* BUTTON TAB TONES */}
-                <div className="border-b border-white/10 bg-neutral-900/60 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 self-start sm:self-auto select-none">
+                <div className="border-b border-white/10 bg-neutral-900/60 p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 overflow-hidden">
+                  <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 self-start sm:self-auto select-none overflow-x-auto max-w-full scrollbar-none whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => setActiveTab('table')}
@@ -643,6 +773,32 @@ export default function App() {
                     >
                       <FileText className="w-3.5 h-3.5" />
                       Matches Highlight Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('visuals')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeTab === 'visuals' 
+                          ? 'bg-indigo-600 text-white shadow font-medium' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Analyze isolated parameters distribution with visual graphs"
+                    >
+                      <BarChart3 className="w-3.5 h-3.5" />
+                      Visual Metrics
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('redactor')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer flex items-center gap-1.5 ${
+                        activeTab === 'redactor' 
+                          ? 'bg-indigo-600 text-white shadow font-medium' 
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                      title="Generate sanitized data with secure code scrubbers"
+                    >
+                      <Scissors className="w-3.5 h-3.5" />
+                      Strict Log Redactor
                     </button>
                     <button
                       type="button"
@@ -843,7 +999,259 @@ export default function App() {
                   </div>
                 )}
 
-                {/* TAB WINDOW 3: LOCAL LOGS HISTORY STORE */}
+                {/* TAB WINDOW 3: DYNAMIC VISUAL METRICS */}
+                {activeTab === 'visuals' && (
+                  <div className="p-4 sm:p-6 space-y-6">
+                    {results.length > 0 ? (
+                      <div className="space-y-6 select-text">
+                        {/* Summary Metadata Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
+                          {/* Risk gauge column */}
+                          <div className="md:col-span-5 bg-black/40 border border-white/5 rounded-2xl p-5 flex flex-col items-center justify-center text-center space-y-3">
+                            <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500 font-bold block">Security Exposure Index</span>
+                            
+                            {/* Circular graphic gauge */}
+                            <div className="relative w-28 h-28 flex items-center justify-center">
+                              {(() => {
+                                const exposureScore = Math.min(100, (results.filter(r => r.confidence >= 0.8).length * 15) + (results.length * 4));
+                                const strokeDashoffset = 220 - (220 * Math.min(100, exposureScore)) / 100;
+                                let colorClass = 'text-emerald-500';
+                                if (exposureScore > 35) colorClass = 'text-amber-500';
+                                if (exposureScore > 70) colorClass = 'text-rose-500 animate-pulse';
+
+                                return (
+                                  <>
+                                    <svg className="w-full h-full transform -rotate-90">
+                                      <circle cx="56" cy="56" r="45" className="stroke-white/5" strokeWidth="8" fill="transparent" />
+                                      <circle 
+                                        cx="56" 
+                                        cy="56" 
+                                        r="45" 
+                                        className={`stroke-current ${colorClass}`} 
+                                        strokeWidth="8" 
+                                        fill="transparent" 
+                                        strokeDasharray="283"
+                                        strokeDashoffset={strokeDashoffset}
+                                        strokeLinecap="round"
+                                        style={{ transition: 'stroke-dashoffset 0.6s ease-in-out' }}
+                                      />
+                                    </svg>
+                                    <div className="absolute flex flex-col items-center justify-center">
+                                      <span className="text-2xl font-black font-mono leading-none">{exposureScore}%</span>
+                                      <span className="text-[8px] font-mono uppercase text-zinc-500 mt-1">Score</span>
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Exposure description */}
+                            {(() => {
+                              const score = Math.min(100, (results.filter(r => r.confidence >= 0.8).length * 15) + (results.length * 4));
+                              if (score === 0) return <p className="text-[10px] text-emerald-400 font-semibold font-mono">0 Isolated Threats File Safe</p>;
+                              if (score <= 35) return <p className="text-[10px] text-zinc-400 font-medium">Moderate unencrypted profile coordinates detected.</p>;
+                              if (score <= 70) return <p className="text-[10px] text-amber-400 font-semibold">Active indexes under threat list. Low compliance.</p>;
+                              return <p className="text-[10px] text-rose-400 font-bold uppercase animate-pulse">CRITICAL LOG EXPOSURE RATING</p>;
+                            })()}
+                          </div>
+
+                          {/* Data types representation list */}
+                          <div className="md:col-span-7 bg-black/40 border border-white/5 rounded-2xl p-5 space-y-4">
+                            <span className="text-[10px] uppercase font-mono tracking-widest text-zinc-500 font-bold block">Classifications Distribution</span>
+                            <div className="space-y-3">
+                              {Object.entries(TYPE_CONFIG).map(([typeKey, cfg]) => {
+                                const count = categoriesCount[typeKey as keyof typeof categoriesCount] || 0;
+                                const ratio = results.length > 0 ? (count / results.length) * 100 : 0;
+                                const IconComponent = cfg.icon;
+
+                                return (
+                                  <div key={typeKey} className="space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                                      <span className="flex items-center gap-1.5 capitalize">
+                                        <IconComponent className="w-3.5 h-3.5" />
+                                        {typeKey.replace('_', ' ')}
+                                      </span>
+                                      <span>{count} / {results.length} ({Math.round(ratio)}%)</span>
+                                    </div>
+                                    <div className="w-full h-1.5 bg-zinc-950 rounded-full overflow-hidden border border-white/5">
+                                      <div 
+                                        className={`h-full rounded-full ${cfg.pill.split(' ')[1]}`} 
+                                        style={{ width: `${ratio}%`, background: 'currentColor', transition: 'width 0.6s ease' }} 
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Extra analysis vectors */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="bg-neutral-950 border border-white/5 p-4 rounded-xl space-y-2">
+                            <h6 className="text-[10px] uppercase font-mono text-zinc-500 font-bold">Accuracy Index Calibration</h6>
+                            <div className="space-y-2">
+                              {(() => {
+                                const highConfidence = results.filter(r => r.confidence >= 0.8).length;
+                                const mediumConfidence = results.filter(r => r.confidence >= 0.5 && r.confidence < 0.8).length;
+                                const lowConfidence = results.filter(r => r.confidence < 0.5).length;
+
+                                return (
+                                  <div className="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                                    <div className="p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
+                                      <span className="text-emerald-400 font-bold text-base block">{highConfidence}</span>
+                                      <span className="text-[8px] text-zinc-500 uppercase">High cert</span>
+                                    </div>
+                                    <div className="p-2 bg-amber-500/5 rounded-lg border border-amber-500/10">
+                                      <span className="text-amber-400 font-bold text-base block">{mediumConfidence}</span>
+                                      <span className="text-[8px] text-zinc-500 uppercase">Mid cert</span>
+                                    </div>
+                                    <div className="p-2 bg-zinc-800/20 rounded-lg border border-white/5">
+                                      <span className="text-zinc-400 font-bold text-base block">{lowConfidence}</span>
+                                      <span className="text-[8px] text-zinc-500 uppercase">Low cert</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                          <div className="bg-neutral-950 border border-white/5 p-4 rounded-xl flex flex-col justify-between">
+                            <h6 className="text-[10px] uppercase font-mono text-zinc-500 font-bold">Logstream Code Entropy</h6>
+                            <div className="space-y-1 font-mono text-xs text-zinc-400">
+                              <p className="flex justify-between">
+                                <span className="text-zinc-500">Sensitive Word ratio:</span>
+                                <span className="text-indigo-400">{((results.length / Math.max(1, inputText.split(/\s+/).length)) * 100).toFixed(2)}%</span>
+                              </p>
+                              <p className="flex justify-between">
+                                <span className="text-zinc-500">Uniqueness Index:</span>
+                                <span className="text-indigo-400">{Math.round((new Set(results.map(r => r.id)).size / Math.max(1, results.length)) * 100)}%</span>
+                              </p>
+                            </div>
+                            <span className="text-[9px] text-zinc-500 mt-2 block italic leading-tight">Matched coordinates calculated via structural telemetry schemas.</span>
+                          </div>
+                        </div>
+
+                      </div>
+                    ) : (
+                      <div className="py-24 px-6 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-inner">
+                          <BarChart3 className="w-7 h-7 animate-pulse" />
+                        </div>
+                        <div className="max-w-md space-y-1">
+                          <h4 className="font-bold text-zinc-200">No Analytics Telemetry Compiled</h4>
+                          <p className="text-xs text-zinc-500 leading-relaxed">
+                            Run a cognitive log stream scan over active target configurations to construct real-time exposure matrices.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB WINDOW 4: SECURE ANONYMIZER / LOG REDACTOR */}
+                {activeTab === 'redactor' && (
+                  <div className="p-4 sm:p-6 space-y-5">
+                    {results.length > 0 ? (
+                      <div className="space-y-5 text-left select-text">
+                        {/* Redaction setting panels */}
+                        <div className="p-4 bg-black/40 border border-white/5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs uppercase font-mono tracking-wider font-bold text-zinc-400 block">Redaction Label Prefix</label>
+                            <input 
+                              type="text" 
+                              value={redactionPrefix}
+                              onChange={(e) => setRedactionPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))}
+                              placeholder="e.g. REDACTED"
+                              className="w-full bg-neutral-950 border border-white/15 focus:border-indigo-500 rounded-xl p-2.5 text-xs text-indigo-400 font-mono transition-colors focus:ring-1 focus:ring-indigo-500/20"
+                            />
+                            <p className="text-[10px] text-zinc-500 font-mono italic">Values convert to capitalized safe-strings</p>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs uppercase font-mono tracking-wider font-bold text-zinc-400 block">Classifications to Scrub</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.keys(TYPE_CONFIG).map((typeKey) => {
+                                const isScrubbed = redactTypes.includes(typeKey);
+                                return (
+                                  <button
+                                    key={typeKey}
+                                    type="button"
+                                    onClick={() => {
+                                      if (isScrubbed) {
+                                        setRedactTypes(redactTypes.filter(t => t !== typeKey));
+                                      } else {
+                                        setRedactTypes([...redactTypes, typeKey]);
+                                      }
+                                    }}
+                                    className={`px-2.5 py-1 text-[10px] rounded-lg border font-mono uppercase tracking-wider transition-all cursor-pointer ${
+                                      isScrubbed 
+                                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold' 
+                                        : 'bg-zinc-800/40 text-zinc-500 border-transparent hover:text-zinc-300'
+                                    }`}
+                                  >
+                                    {typeKey.replace('_', ' ')}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Top controls */}
+                        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                          <span className="text-xs uppercase font-mono text-zinc-400 tracking-wider font-bold flex items-center gap-1.5">
+                            <Lock className="w-3.5 h-3.5 text-rose-400" /> Sanitized Output Preview
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleCopyRedacted}
+                              className="py-1 px-3 bg-zinc-800 hover:bg-zinc-700 border border-white/10 rounded-lg text-xs font-mono transition-all inline-flex items-center gap-1.5 text-indigo-300 cursor-pointer"
+                            >
+                              {copiedRedacted ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                              {copiedRedacted ? 'Scrubbed Logs Copied' : 'Copy Scrubbed Logs'}
+                            </button>
+                            <button
+                              onClick={handleDownloadRedacted}
+                              className="py-1 px-3 bg-zinc-800 hover:bg-zinc-700 border border-white/10 rounded-lg text-xs font-mono transition-all inline-flex items-center gap-1 cursor-pointer text-zinc-300"
+                              title="Download clean safe server/docker logs configuration"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download Scrubbed File
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Redacted display block */}
+                        <div className="relative">
+                          <pre className="p-4 bg-neutral-950 border border-white/10 rounded-xl leading-relaxed text-xs select-all text-zinc-400 min-h-[300px] overflow-y-auto max-h-[450px] whitespace-pre-wrap font-mono">
+                            {redactedText}
+                          </pre>
+                        </div>
+
+                        <p className="text-[11px] text-zinc-500 leading-normal flex items-start gap-1.5 bg-zinc-950 p-2.5 rounded-lg border border-white/5">
+                          <EyeOff className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                          <span>
+                            Security Warning: Anonymized output is computed client-side. Always ensure custom credentials or proprietary secrets are completely aligned before pushing to third-party public logs indexes.
+                          </span>
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="py-24 px-6 flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-inner">
+                          <Scissors className="w-7 h-7 " />
+                        </div>
+                        <div className="max-w-md space-y-1">
+                          <h4 className="font-bold text-zinc-200">Scrubber Pipeline Offline</h4>
+                          <p className="text-xs text-zinc-500 leading-relaxed">
+                            Zero unscrubbed tokens mapped. Paste telemetry files and run a cognitive scan to isolate keys for automated compliance redaction.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TAB WINDOW 5: LOCAL LOGS HISTORY STORE */}
                 {activeTab === 'history' && (
                   <div className="p-4 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between border-b border-white/5 pb-2 select-text">
