@@ -34,7 +34,7 @@ spec:
         image: custom-registry.io/gateway:v4.1.2
         env:
         - name: MONGO_URI
-          value: "mongodb://admin_dev:pw_secret_991823a@cluster0.a28bc.mongodb.net/prod_core_db_2026?authSource=admin"
+          value: "mongodb://Brxinee:Jogdhande08%40@cluster0.a28bc.mongodb.net/prod_core_db_2026?authSource=admin"
         - name: STRIPE_SECRET_KEY
           value: "sk_test_51No3K9LJ192aA81h902jH71V91o128c89b8aa7556a092ff91a"
         - name: SLACK_CHANNEL_ID
