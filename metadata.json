@@ -1,6 +1,6 @@
 {
-  "name": "IDsvault Identity Brokerage",
-  "description": "Premium Digital Identity & Instagram/X username manual escrow marketplace. Facilitating risk-free Web asset transfers.",
+  "name": "GetIds Extraction Utility",
+  "description": "An automated parser and developer tool that extracts, visualizes, and isolates database IDs, account usernames, email coordinates, channels, and system resource IDs in real-time using Gemini.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
