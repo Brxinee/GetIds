@@ -1,8 +1,8 @@
 import { ADMIN_PHONE } from './constants';
 
 export function generateWhatsAppLink(text: string): string {
-  // Use the verified customer WhatsApp QR shortcode link to maximize trust and instant delivery
-  return `https://wa.me/qr/5BW2DSNO53KXJ1?text=${encodeURIComponent(text)}`;
+  // Use official deep link format to prevent QR issues and automatically pre-fill WhatsApp client chat
+  return `https://wa.me/${ADMIN_PHONE}?text=${encodeURIComponent(text)}`;
 }
 
 export function buildBuyerMessage(params: {

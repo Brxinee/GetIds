@@ -600,26 +600,50 @@ export default function App() {
       return;
     }
 
+    // Capture variables locally to prevent synchronous state clearing issues and NaN rendering
+    const usernameVal = sellUsername.trim().replace('@', '');
+    const platformVal = sellPlatform;
+    const categoryVal = sellCategory || 'General Digital Asset';
+    const askingPriceVal = parseFloat(sellAskingPrice) || 0;
+    const minPriceVal = sellMinPrice ? (parseFloat(sellMinPrice) || undefined) : undefined;
+    const sellerNameVal = sellSellerName;
+    const whatsappVal = sellWhatsapp;
+    const proofNameVal = sellerProofName || undefined;
+    const proofDataVal = sellerProofData || undefined;
+
     const subId = 'sub-' + Date.now();
     const newSub: SellerSubmission = {
       id: subId,
-      username: sellUsername.trim().replace('@', ''),
-      platform: sellPlatform,
-      category: sellCategory || 'General Digital Asset',
-      askingPrice: parseFloat(sellAskingPrice),
-      minPrice: sellMinPrice ? parseFloat(sellMinPrice) : undefined,
-      sellerName: sellSellerName,
-      whatsapp: sellWhatsapp,
+      username: usernameVal,
+      platform: platformVal,
+      category: categoryVal,
+      askingPrice: askingPriceVal,
+      minPrice: minPriceVal,
+      sellerName: sellerNameVal,
+      whatsapp: whatsappVal,
       ownershipConfirmed: true,
       status: 'pending',
-      uploadProofName: sellerProofName || undefined,
-      uploadProofData: sellerProofData || undefined
+      uploadProofName: proofNameVal,
+      uploadProofData: proofDataVal
     };
+
+    const msg = buildSellerMessage({
+      username: usernameVal,
+      platform: platformVal,
+      category: categoryVal,
+      askingPrice: askingPriceVal,
+      minPrice: minPriceVal,
+      sellerName: sellerNameVal,
+      brokerageRate: brokeragePct
+    });
+
+    const waUrl = generateWhatsAppLink(msg);
 
     // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("SELLER PROFILE QUEUED");
-    setWhatsappConfirmSubtitle(`Your ownership request for @${sellUsername.replace('@', '')} is logged in our offline registry ledger. Connect with a manual broker now to fast-track verification.`);
+    setWhatsappConfirmSubtitle(`Your ownership request for @${usernameVal} is logged. Redirecting you to our verification channel on WhatsApp...`);
     setWhatsappConfirmCopied(false);
+    setWhatsappConfirmMsg(msg);
     setWhatsappConfirmOpen(true);
     setHandoffLoading(true);
     setHandoffProgress('Preparing your secure broker request...');
@@ -631,10 +655,10 @@ export default function App() {
         body: JSON.stringify({
           token: turnstileToken,
           payload: newSub,
-          fileData: sellerProofData || null,
-          fileName: sellerProofName || null,
-          fileType: sellerProofData ? 'image/png' : null,
-          fileSize: sellerProofData ? Math.floor(sellerProofData.length * 3 / 4) : 0
+          fileData: proofDataVal || null,
+          fileName: proofNameVal || null,
+          fileType: proofDataVal ? 'image/png' : null,
+          fileSize: proofDataVal ? Math.floor(proofDataVal.length * 3 / 4) : 0
         })
       });
 
@@ -648,11 +672,11 @@ export default function App() {
 
       // Step-by-step progress feel
       setHandoffProgress('Generating broker routing hash...');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
       setHandoffProgress('Encrypting dossier variables...');
-      await new Promise(r => setTimeout(r, 600));
-      setHandoffProgress('Readying manual transition room...');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
+      setHandoffProgress('Redirecting you to WhatsApp...');
+      await new Promise(r => setTimeout(r, 400));
 
       // Hydrate local states
       const updated = [newSub, ...submissions];
@@ -662,9 +686,9 @@ export default function App() {
       if (sheetsAccessToken && syncSpreadsheetId) {
         const row = [
           new Date().toLocaleString(),
-          `@${sellUsername.trim().replace('@', '')}`,
-          sellPlatform.toUpperCase(),
-          `$${parseFloat(sellAskingPrice).toLocaleString()}`,
+          `@${usernameVal}`,
+          platformVal.toUpperCase(),
+          `₹${askingPriceVal.toLocaleString('en-IN')}`,
           'Submission Queued (Pending Verification)',
           'Auto-Assigned Desk Officer',
           `https://idsvault.in/?id=${subId}`
@@ -674,35 +698,31 @@ export default function App() {
           .catch(err => console.error("Sheets auto append failed", err));
       }
       
-      const msg = buildSellerMessage({
-        username: sellUsername,
-        platform: sellPlatform,
-        category: sellCategory || 'General Digital Asset',
-        askingPrice: parseFloat(sellAskingPrice),
-        minPrice: sellMinPrice ? parseFloat(sellMinPrice) : undefined,
-        sellerName: sellSellerName,
-        brokerageRate: brokeragePct
-      });
-      setWhatsappConfirmMsg(msg);
-      logGAEvent('submit_seller_success', { username: sellUsername, platform: sellPlatform });
+      logGAEvent('submit_seller_success', { username: usernameVal, platform: platformVal });
+
+      // Automatically launch WhatsApp native client/web tab
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => {
+        window.location.href = waUrl;
+      }, 150);
+
     } catch (err: any) {
       alert(`Network failure: ${err?.message || err}`);
       setWhatsappConfirmOpen(false);
     } finally {
       setHandoffLoading(false);
+      // Clean form parameters
+      setWizardStep(1);
+      setSellUsername('');
+      setSellCategory('');
+      setSellAskingPrice('');
+      setSellMinPrice('');
+      setSellSellerName('');
+      setSellWhatsapp('');
+      setSellDeclaration(false);
+      setSellerProofName('');
+      setSellerProofData('');
     }
-
-    // Reset wizard states
-    setWizardStep(1);
-    setSellUsername('');
-    setSellCategory('');
-    setSellAskingPrice('');
-    setSellMinPrice('');
-    setSellSellerName('');
-    setSellWhatsapp('');
-    setSellDeclaration(false);
-    setSellerProofName('');
-    setSellerProofData('');
   };
 
   // Form Submission: Specific custom handle acquisition hunt
@@ -710,21 +730,41 @@ export default function App() {
     e.preventDefault();
     if (!reqUsername || !reqBudget || !reqWhatsapp) return;
 
+    // Capture variables locally to bypass concurrent racing resets
+    const usernameVal = reqUsername.trim().replace('@', '');
+    const platformVal = reqPlatform;
+    const budgetVal = parseFloat(reqBudget) || 0;
+    const urgencyVal = reqUrgency;
+    const alternativesVal = reqAlternatives;
+    const whatsappVal = reqWhatsapp;
+
     const newRequest = {
       id: 'hunt-' + Date.now(),
-      desiredUsername: reqUsername.trim().replace('@', ''),
-      platform: reqPlatform,
-      budget: parseFloat(reqBudget),
-      urgency: reqUrgency,
-      alternatives: reqAlternatives,
-      whatsapp: reqWhatsapp,
+      desiredUsername: usernameVal,
+      platform: platformVal,
+      budget: budgetVal,
+      urgency: urgencyVal,
+      alternatives: alternativesVal,
+      whatsapp: whatsappVal,
       timestamp: new Date().toISOString()
     };
 
+    const msg = buildRequestMessage({
+      desiredUsername: usernameVal,
+      platform: platformVal,
+      budget: budgetVal,
+      urgency: urgencyVal,
+      alternatives: alternativesVal,
+      whatsapp: whatsappVal
+    });
+
+    const waUrl = generateWhatsAppLink(msg);
+
     // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("DYNAMIC HUNT REGISTERED");
-    setWhatsappConfirmSubtitle(`Intermediary tracking parameters registered for @${reqUsername.replace('@', '')}. Connect with WhatsApp now to authorize a secure manual brokerage outreach.`);
+    setWhatsappConfirmSubtitle(`Intermediary tracking parameters registered for @${usernameVal}. Opening WhatsApp to establish secure manual brokerage outreach...`);
     setWhatsappConfirmCopied(false);
+    setWhatsappConfirmMsg(msg);
     setWhatsappConfirmOpen(true);
     setHandoffLoading(true);
     setHandoffProgress('Preparing your secure broker request...');
@@ -748,36 +788,33 @@ export default function App() {
       }
 
       setHandoffProgress('Configuring hunt parameters...');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
       setHandoffProgress('Initializing active scanning...');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
 
       const updated = [newRequest, ...huntRequests];
       setHuntRequests(updated);
 
-      const msg = buildRequestMessage({
-        desiredUsername: reqUsername,
-        platform: reqPlatform,
-        budget: parseFloat(reqBudget),
-        urgency: reqUrgency,
-        alternatives: reqAlternatives,
-        whatsapp: reqWhatsapp
-      });
-      setWhatsappConfirmMsg(msg);
-      logGAEvent('submit_request_success', { target: reqUsername, platform: reqPlatform });
+      logGAEvent('submit_request_success', { target: usernameVal, platform: platformVal });
+
+      // Automatically launch WhatsApp native client/web tab
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => {
+        window.location.href = waUrl;
+      }, 150);
+
     } catch (err: any) {
       alert(`Network error: ${err?.message || err}`);
       setWhatsappConfirmOpen(false);
     } finally {
       setHandoffLoading(false);
+      // Clean form parameters safely after completion
+      setReqUsername('');
+      setReqBudget('');
+      setReqAlternatives('');
+      setReqWhatsapp('');
+      setReqUrgency('Medium');
     }
-
-    // Reset form parameters
-    setReqUsername('');
-    setReqBudget('');
-    setReqAlternatives('');
-    setReqWhatsapp('');
-    setReqUrgency('Medium');
   };
 
   // Form Submission: Start secure escrow deal from detail page
@@ -789,11 +826,15 @@ export default function App() {
     }
 
     const dealId = 'deal-' + Date.now();
-    const agreedAmount = parseFloat(buyerOffer);
+    const agreedAmount = parseFloat(buyerOffer) || 0;
     
     // Dynamic commission matching Admin brokerage % setting
     const commFee = agreedAmount * (brokeragePct / 100);
     const sellerReceive = agreedAmount * (1 - brokeragePct / 100);
+
+    const buyerNameVal = buyerName;
+    const buyerPhoneVal = buyerPhone;
+    const buyerNotesVal = buyerNotes;
 
     const newDeal: DealItem = {
       id: dealId,
@@ -803,14 +844,28 @@ export default function App() {
       brokerageFee: commFee,
       payout: sellerReceive,
       status: 'NEW',
-      buyerName: buyerName,
-      whatsapp: buyerPhone
+      buyerName: buyerNameVal,
+      whatsapp: buyerPhoneVal
     };
+
+    const displayInfo = getDisplayPriceAndCTA(listingItem);
+    const contactMsg = buildBuyerMessage({
+      username: listingItem.username,
+      platform: listingItem.platform,
+      displayPrice: displayInfo.displayPrice,
+      offer: agreedAmount,
+      urgency: buyerUrgency,
+      name: buyerNameVal,
+      notes: buyerNotesVal
+    });
+
+    const waUrl = generateWhatsAppLink(contactMsg);
 
     // Show Progress Handoff Loader immediately
     setWhatsappConfirmTitle("SUPERVISED TRANSFER WORKSPACE DEPLOYED");
-    setWhatsappConfirmSubtitle(`A transaction reserve reference code has been logged. Your offer of ₹${agreedAmount.toLocaleString('en-IN')} has been registered for @${listingItem.username.replace('@', '')}. Connect with a human broker now to coordinate.`);
+    setWhatsappConfirmSubtitle(`A transaction reserve reference code has been logged. Redirecting you to WhatsApp to coordinate your buyout of @${listingItem.username}...`);
     setWhatsappConfirmCopied(false);
+    setWhatsappConfirmMsg(contactMsg);
     setWhatsappConfirmOpen(true);
     setHandoffLoading(true);
     setHandoffProgress('Preparing your secure broker request...');
@@ -834,7 +889,7 @@ export default function App() {
       }
 
       setHandoffProgress('Generating broker coordinate channels...');
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 400));
 
       const updated = [newDeal, ...deals];
       await syncDeals(updated);
@@ -855,32 +910,27 @@ export default function App() {
           .catch(err => console.error("Sheets auto append failed", err));
       }
 
-      const displayInfo = getDisplayPriceAndCTA(listingItem);
-      const contactMsg = buildBuyerMessage({
-        username: listingItem.username,
-        platform: listingItem.platform,
-        displayPrice: displayInfo.displayPrice,
-        offer: agreedAmount,
-        urgency: buyerUrgency,
-        name: buyerName,
-        notes: buyerNotes
-      });
-      setWhatsappConfirmMsg(contactMsg);
       logGAEvent('submit_buyer_success', { target: listingItem.username, amount: agreedAmount });
+
+      // Automatically launch WhatsApp native client/web tab
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => {
+        window.location.href = waUrl;
+      }, 150);
+
     } catch (err: any) {
       alert(`Network failed: ${err?.message || err}`);
       setWhatsappConfirmOpen(false);
     } finally {
       setHandoffLoading(false);
+      // Close and reset states safely
+      setDealModalOpen(false);
+      setBuyerName('');
+      setBuyerPhone('');
+      setBuyerOffer('');
+      setBuyerNotes('');
+      setTurnstileToken('');
     }
-
-    // Close and reset states
-    setDealModalOpen(false);
-    setBuyerName('');
-    setBuyerPhone('');
-    setBuyerOffer('');
-    setBuyerNotes('');
-    setTurnstileToken('');
   };
 
   // Private Admin Access Validation via Supabase with Bypass Fallback
@@ -1361,7 +1411,7 @@ export default function App() {
                 </div>
 
                 {/* Secure Brokerage Coordinate Modal */}
-                {dealModalOpen && (
+                {dealModalOpen && currentListing && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030303]/95 backdrop-blur-md">
                     <div className="w-full max-w-lg bg-[#111112] border border-white/10 rounded-2xl p-6 sm:p-8 relative space-y-5 shadow-2xl overflow-y-auto max-h-[90vh]">
                       
@@ -4027,7 +4077,7 @@ export default function App() {
                 <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-[#050505] to-transparent pointer-events-none rounded-b-xl" />
               </div>
               <p className="text-[10px] text-zinc-400 leading-snug">
-                ⚠️ <span className="text-zinc-300 font-bold">Pro-Tip for Zero Handover Failure:</span> Clicking below connects you to our broker QR system. Due to custom device features, if the message fails to populate inside WhatsApp, simply long-press in the chat input and select <span className="font-mono text-white bg-white/10 px-1 py-0.5 rounded font-bold">Paste</span>.
+                ⚠️ <span className="text-zinc-300 font-bold">Direct Dispatch:</span> Clicking below establishes a secure chat. Your device's native WhatsApp client will launch automatically. If blocked by popups, please tap the button below directly to initiate communication.
               </p>
             </div>
 
