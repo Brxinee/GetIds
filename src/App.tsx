@@ -55,7 +55,8 @@ import {
   dbFetchSubmissions, 
   dbFetchDeals, 
   dbSaveDeal, 
-  isSupabaseConnected 
+  isSupabaseConnected,
+  supabase
 } from './lib/supabase';
 
 import { 
@@ -223,6 +224,8 @@ export default function App() {
     return sessionStorage.getItem('ids_admin_authenticated') === 'true';
   });
   const [adminPass, setAdminPass] = useState<string>('');
+  const [adminAuthMode, setAdminAuthMode] = useState<'passkey' | 'supabase'>('passkey');
+  const [adminEmail, setAdminEmail] = useState<string>('');
 
   // FAQ accordion active indices
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -473,17 +476,40 @@ export default function App() {
   };
 
   // Private Admin Access Validation
-  const handleAdminAuthSubmit = (e: React.FormEvent) => {
+  const handleAdminAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Access passkey checking with secret context fallback
-    const targetKey = import.meta.env?.VITE_ADMIN_ACCESS_KEY || 'adminpass';
-    if (adminPass === targetKey) {
-      setAdminAuth(true);
-      sessionStorage.setItem('ids_admin_authenticated', 'true');
-      setAdminPass('');
+    if (adminAuthMode === 'supabase') {
+      if (!isSupabaseConnected() || !supabase) {
+        alert('Supabase is not configured yet. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY first, or authenticate in passcode mode.');
+        return;
+      }
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: adminEmail,
+          password: adminPass
+        });
+        if (error) {
+          alert(`Supabase Auth Security Failed: ${error.message}`);
+          return;
+        }
+        setAdminAuth(true);
+        sessionStorage.setItem('ids_admin_authenticated', 'true');
+        setAdminPass('');
+        setAdminEmail('');
+      } catch (err: any) {
+        alert(`Authentication process failed: ${err?.message || err}`);
+      }
     } else {
-      alert('Security Authentication Failed. Please verify the desk credentials codes.');
+      // Access passcode checking with secret context fallback
+      const targetKey = import.meta.env?.VITE_ADMIN_ACCESS_KEY || 'adminpass';
+      if (adminPass === targetKey) {
+        setAdminAuth(true);
+        sessionStorage.setItem('ids_admin_authenticated', 'true');
+        setAdminPass('');
+      } else {
+        alert('Security Authentication Failed. Please verify the desk credentials passcode.');
+      }
     }
   };
 
@@ -1799,32 +1825,88 @@ export default function App() {
                   <div className="max-w-5xl mx-auto space-y-10 animate-fadeIn text-left">
                     
                     {!adminAuth ? (
-                      <div className="max-w-sm mx-auto space-y-6 py-12">
+                      <div className="max-w-md mx-auto space-y-6 py-12">
                         <div className="text-center space-y-2">
                           <h2 className="text-2xl font-black text-white uppercase font-mono">Supervisor Gate check</h2>
-                          <p className="text-xs text-zinc-500">Administrative desk passcode. Test key is <span className="font-mono text-zinc-300 font-bold bg-zinc-900 px-1.5 py-0.5 rounded">adminpass</span></p>
+                          <p className="text-xs text-zinc-500">Secure entry vector into the broker administration desk.</p>
                         </div>
 
-                        <form onSubmit={handleAdminAuthSubmit} className="p-6 bg-[#0c0c0e] border border-white/10 rounded-2xl space-y-4">
-                          <div>
-                            <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Passcode</label>
-                            <input
-                              type="password"
-                              required
-                              value={adminPass}
-                              onChange={(e) => setAdminPass(e.target.value)}
-                              placeholder="Enter access code"
-                              className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-700"
-                            />
+                        <div className="bg-[#0c0c0e] border border-white/10 rounded-2xl p-6 space-y-4">
+                          {/* Authentication Selection Mode Tabs */}
+                          <div className="grid grid-cols-2 gap-2 bg-[#050505] p-1 rounded-xl border border-white/5 text-[10px] font-mono">
+                            <button
+                              type="button"
+                              onClick={() => setAdminAuthMode('passkey')}
+                              className={`py-2 px-1.5 font-bold uppercase rounded-lg transition-all ${
+                                adminAuthMode === 'passkey' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'text-zinc-500 hover:text-zinc-300'
+                              }`}
+                            >
+                              Standard Passkey
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAdminAuthMode('supabase')}
+                              className={`py-2 px-1.5 font-bold uppercase rounded-lg transition-all ${
+                                adminAuthMode === 'supabase' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'text-zinc-500 hover:text-zinc-300'
+                              }`}
+                            >
+                              Supabase Auth DB
+                            </button>
                           </div>
 
-                          <button
-                            type="submit"
-                            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold tracking-widest uppercase rounded-xl transition-all cursor-pointer"
-                          >
-                            Authenticate passkey
-                          </button>
-                        </form>
+                          <form onSubmit={handleAdminAuthSubmit} className="space-y-4 text-left">
+                            {adminAuthMode === 'supabase' ? (
+                              <>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Supervisor Email</label>
+                                  <input
+                                    type="email"
+                                    required
+                                    value={adminEmail}
+                                    onChange={(e) => setAdminEmail(e.target.value)}
+                                    placeholder="supervisor@idsvault.vip"
+                                    className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800 font-mono"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Account Password</label>
+                                  <input
+                                    type="password"
+                                    required
+                                    value={adminPass}
+                                    onChange={(e) => setAdminPass(e.target.value)}
+                                    placeholder="Enter your password"
+                                    className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800"
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 mb-1.5 uppercase tracking-widest font-mono">Terminal Passkey</label>
+                                <input
+                                  type="password"
+                                  required
+                                  value={adminPass}
+                                  onChange={(e) => setAdminPass(e.target.value)}
+                                  placeholder="Enter access code (e.g. adminpass)"
+                                  className="w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-blue-500 focus:outline-none placeholder-zinc-800"
+                                />
+                                <span className="block text-[9px] text-zinc-600 font-mono mt-1 text-center">Test key: <span className="text-zinc-400 font-bold">adminpass</span></span>
+                              </div>
+                            )}
+
+                            <button
+                              type="submit"
+                              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold tracking-widest uppercase rounded-xl transition-all cursor-pointer font-mono"
+                            >
+                              Authenticate Broker Session
+                            </button>
+                          </form>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-12">
@@ -2355,21 +2437,32 @@ export default function App() {
                 <button
                   type="button"
                   onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(whatsappConfirmMsg);
-                      setWhatsappConfirmCopied(true);
-                      setTimeout(() => setWhatsappConfirmCopied(false), 2000);
-                    } catch (e) {
-                      // Fallback manually if blocked
-                      const el = document.createElement('textarea');
-                      el.value = whatsappConfirmMsg;
-                      document.body.appendChild(el);
-                      el.select();
-                      document.execCommand('copy');
-                      document.body.removeChild(el);
-                      
-                      setWhatsappConfirmCopied(true);
-                      setTimeout(() => setWhatsappConfirmCopied(false), 2000);
+                    const fallbackCopy = () => {
+                      try {
+                        const el = document.createElement('textarea');
+                        el.value = whatsappConfirmMsg;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(el);
+                        setWhatsappConfirmCopied(true);
+                        setTimeout(() => setWhatsappConfirmCopied(false), 2000);
+                      } catch (err) {
+                        console.warn('Fallback clipboard copy failed', err);
+                      }
+                    };
+
+                    if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                      try {
+                        await navigator.clipboard.writeText(whatsappConfirmMsg);
+                        setWhatsappConfirmCopied(true);
+                        setTimeout(() => setWhatsappConfirmCopied(false), 2000);
+                      } catch (e) {
+                        console.warn('Navigator clipboard API failed, running fallback copy', e);
+                        fallbackCopy();
+                      }
+                    } else {
+                      fallbackCopy();
                     }
                   }}
                   className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-bold tracking-tight uppercase transition-colors cursor-pointer"

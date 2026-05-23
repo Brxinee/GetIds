@@ -22,8 +22,9 @@ export default function CloudflareTurnstile({ onVerified, verified }: Cloudflare
           // Clear any dynamic previous renders
           containerRef.current.innerHTML = '';
           
+          const sitekey = import.meta.env?.VITE_TURNSTILE_SITEKEY || '1x00000000000000000000AA';
           const id = turnstile.render(containerRef.current, {
-            sitekey: '1x00000000000000000000AA', // CF testing sitekey that always solves successfully
+            sitekey: sitekey, // CF dynamic sitekey (fallbacks to test key)
             callback: (token: string) => {
               if (active) {
                 onVerified(true);
