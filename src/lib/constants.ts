@@ -168,39 +168,43 @@ export const INITIAL_DEALS_SEEDS: DealItem[] = [
 
 export const FAQ_SEEDS = [
   { 
-    q: "How does the secure transfer work?", 
-    a: "We manually coordinate all device details and recovery email switchovers in a supervised private escrow environment. Our brokers examine platform logs and lock recovery pathways to guarantee 100% security with zero backdoor risks." 
+    q: "How does the secure transfer process work?", 
+    a: "We coordinate a structured 6-step human broker-assisted handover. Once an offer is approved, we establish a private WhatsApp deal room to manually supervise ownership verification, coordinate registered backup mailboxes switchovers, close active session links, and release payouts once the buyer confirms complete control." 
   },
   { 
-    q: "Why pay IDsvault instead of the seller directly?", 
-    a: "Direct buying is highly susceptible to scams, recovery recaptures, or payment fraud. IDsvault acts as an official neutral trustee. We hold buyer funds in protected bank corridors and verify all recovery coordinates are locked down before releasing any seller payouts." 
+    q: "Why should I use IDsvault instead of contacting sellers directly?", 
+    a: "Direct peer-to-peer deals carry significant fraud exposure such as account callback fraud (using original registration details), hidden backdoor recovery phone links, and payment double-spending. IDsvault acts as an independent intermediary broker, ensuring the buyer's funds are securely held in structured administration and only released to the seller after complete handover checkups." 
   },
   { 
-    q: "What if the transfer fails or platform locks occur?", 
-    a: "All buyer funds remain in our protected custody. If a seller fails handovers or cannot verify immediate control, the transaction is canceled immediately and your funds are refunded 100% with no hidden fees." 
+    q: "How are sellers verified?", 
+    a: "Sellers must complete a multi-point verification checklist, including submitting administrative control screenshots, platform configuration audits, and declaring legally binding ownership and rights of transfer prior to list approval." 
   },
   { 
-    q: "How are sellers vetted and verified?", 
-    a: "Sellers must submit multi-factor control proofs, platform configuration logs, and clear registration checks. Our internal brokerage desk manually validates administrative control of every handle before approving any public listing." 
+    q: "What if the transfer fails?", 
+    a: "If the seller is unable to complete the supervised credential transfer or fails our manual broker security checks, the deal is instantly canceled. Under our structured payment safety rules, 100% of the buyer's deposited funds are returned immediately with zero processing fees." 
   },
   { 
-    q: "What qualifies as premium on IDsvault?", 
-    a: "We accept short handles (under 6 characters), generic dictionary labels, and brandable industry terms (e.g., finance, media, crypto). Random numeric structures, spam IDs, or direct trademark impersonations are strictly blacklisted to protect registry quality." 
+    q: "Does IDsvault guarantee future platform access?", 
+    a: "No. Because third-party social media networks and domain registries are owned by private entities with independent terms of service, IDsvault makes no guarantees of future account retention, platform policy compliance, or continued ownership access. All risks following successful switchover reside with the buyer." 
   },
   { 
-    q: "Can buyers contact sellers directly?", 
-    a: "No. Direct buyer-seller interactions are prohibited to prevent out-of-bounds dealing, coordinate leaks, and payment scams. All communications must run through supervised IDsvault broker rooms for your safety." 
+    q: "Are you affiliated with Instagram, X, or Telegram?", 
+    a: "No. IDsvault is an entirely independent digital identity brokerage workspace. We are not officially represented by, endorsed by, or partnered with Meta Platforms, Instagram, X Corp, Telegram Inc, or any other third-party platform registry." 
   },
   { 
-    q: "How long do deals and transfers take?", 
-    a: "Official deal rooms are initiated within 2 to 4 hours of checking out. The entire transfer, including network security periods and holding times, completes safely within 24 to 48 hours." 
+    q: "How long do deals usually take?", 
+    a: "Most brokerage handovers are completed within 12 to 24 hours. The precise timeline depends on the responsiveness of both parties and the specific platform's security mechanisms. All sessions are expedited under standard business hours." 
   },
   { 
-    q: "What if a listing is discovered to be fake?", 
-    a: "Our strict listing gate prevents invalid registrations from reaching the marketplace. If a seller's credentials change post-listing, we instantly freeze the listing, reject the seller registration, and return any buyer deposits." 
+    q: "What types of usernames qualify as premium?", 
+    a: "We accept highly rare short-form handles (typically under 6 characters), dictionary words, memorable acronyms, established niche community handles, or prime geographic domain pairs. Generic handles with random numeric strings are ineligible." 
   },
   { 
-    q: "Can IDsvault source specific unavailable usernames?", 
-    a: "Yes. Our bespoke Outreach Sourcing Desk holds proprietary channels to map, contact, and negotiate digital acquisitions from inactive private registrants worldwide. Start a 'Commission Hunt' request to deploy an agent." 
+    q: "What if a seller provides inaccurate information?", 
+    a: "Sellers are bound by legally strict declarations. If our brokers detect falsification of credentials, hidden registration claims, or active disputes mid-transaction, the seller listing is instantly deactivated, the deal is canceled, and the seller is blacklisted." 
+  },
+  { 
+    q: "How do payments work?", 
+    a: "We handle payments through a supervised, structured brokerage method. Buyers allocate funds into a secure administration vault. The funds are held safely under broker observation and are only released to the seller after the buyer completes device testing and signs off on transfer confirmation." 
   }
 ];

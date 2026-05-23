@@ -156,8 +156,8 @@ export default function ListingCard({ item, onClick, onQuickDeal }: ListingCardP
           <div className="flex items-center space-x-1.5 text-[11px] text-zinc-400">
             <span className="font-semibold text-zinc-300">{item.category}</span>
             <span>•</span>
-            <span className="text-[10px] uppercase text-zinc-500 font-mono flex items-center gap-0.5 font-semibold">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block shrink-0" /> Verified Seller
+            <span className="text-[10px] uppercase text-emerald-400 font-mono flex items-center gap-1 font-extrabold tracking-wider bg-emerald-500/5 border border-emerald-500/10 px-1.5 py-0.5 rounded-md">
+              <ShieldCheck className="w-3 h-3 shrink-0" /> Broker Reviewed Listing
             </span>
           </div>
         </div>
