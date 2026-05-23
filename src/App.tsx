@@ -875,14 +875,17 @@ export default function App() {
 
                   </div>
 
-                  {/* Pricing action card box (Right) */}
-                  <div className="lg:col-span-4 text-left">
-                    <div className="border border-white/[0.08] bg-[#111112] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+                  {/* Pricing action card box (Right - Sticky Trust Sidebar) */}
+                  <div className="lg:col-span-4 text-left lg:sticky lg:top-8">
+                    <div className="border border-white/[0.08] bg-[#111112] rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                      {/* Subtly glowing corner aura */}
+                      <div className="absolute -top-10 -right-10 h-28 w-28 bg-gradient-to-br from-emerald-500/10 to-transparent blur-xl pointer-events-none" />
                       
                       <div>
-                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Asset Display Mode</span>
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider font-mono">Bespoke Broker Strategy</span>
                         <div className="flex flex-col mt-1">
-                          <span className="text-[11px] font-mono text-blue-400 uppercase tracking-widest font-semibold">
+                          <span className="text-[11px] font-mono text-blue-400 font-semibold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full inline-block" />
                             {getDisplayPriceAndCTA(currentListing).subtitle}
                           </span>
                           <span className="text-2xl sm:text-3xl font-mono font-black text-white mt-1">
@@ -899,9 +902,9 @@ export default function App() {
                             setBuyerOffer(currentListing.askingPrice.toString());
                             setDealModalOpen(true);
                           }}
-                          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold tracking-widest uppercase shadow-lg shadow-blue-500/10 active:scale-95 transition-all text-center cursor-pointer"
+                          className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold tracking-widest uppercase shadow-lg shadow-blue-500/10 active:scale-95 transition-all text-center cursor-pointer font-mono"
                         >
-                          Initiate Deal Room
+                          Start Secure Deal
                         </button>
 
                         <button
@@ -909,24 +912,48 @@ export default function App() {
                             setBuyerOffer('');
                             setDealModalOpen(true);
                           }}
-                          className="w-full py-4 bg-[#1b1b1c] hover:bg-zinc-800 border border-white/10 text-zinc-200 rounded-xl text-xs font-bold tracking-widest uppercase transition-all text-center cursor-pointer"
+                          className="w-full py-4 bg-[#1b1b1c] hover:bg-zinc-800 border border-white/10 text-zinc-200 rounded-xl text-xs font-bold tracking-widest uppercase transition-all text-center cursor-pointer font-mono"
                         >
                           Make Custom Offer
                         </button>
                       </div>
 
-                      <div className="pt-2 space-y-3 text-[11px] text-zinc-400 leading-normal border-t border-white/5">
-                        <div className="flex items-center gap-2">
-                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span>Structured manual security audits.</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span>Broker commission: {brokeragePct}% administrative fee.</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Check className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          <span>Private WhatsApp communications workspace.</span>
+                      {/* Sticky Trust Sidebar Markers */}
+                      <div className="pt-4 space-y-4 border-t border-white/5">
+                        <h4 className="text-[9px] uppercase font-bold text-zinc-400 tracking-widest font-mono">Guaranteed Escrow Shields</h4>
+                        
+                        <div className="space-y-3 text-[11px] text-zinc-300">
+                          <div className="flex gap-2.5 items-start">
+                            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-white block">Verified Seller</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Legitimate coordinate holding verified.</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2.5 items-start">
+                            <Lock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-white block">Broker Assisted Transfer</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Supervised switchover coordinates.</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2.5 items-start">
+                            <Search className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-white block">Manual Review</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">In-depth background audit logs cleared.</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2.5 items-start">
+                            <User className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-white block">Human Support</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Individual guidance in premium chat rooms.</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -1134,6 +1161,62 @@ export default function App() {
                         </div>
                       </div>
                     </header>
+
+                    {/* Dynamic Above-Fold Trust Strip */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 sm:p-5 bg-zinc-900/20 border border-white/5 rounded-2xl">
+                      {[
+                        { title: 'Verified Sellers', desc: 'Pre-vetted digital profiles', icon: UserCheck },
+                        { title: 'Human Broker Support', desc: 'Secure live chat rooms', icon: MessageCircle },
+                        { title: 'Manual Verification', desc: 'Zero administrative bot risks', icon: ShieldCheck },
+                        { title: 'Secure Assisted Transfers', desc: 'Supervised device handover', icon: Lock }
+                      ].map((trustItem, index) => {
+                        const IconComponent = trustItem.icon;
+                        return (
+                          <div key={index} className="flex gap-3 items-center text-left">
+                            <div className="p-2 sm:p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/10 shrink-0 text-blue-400">
+                              <IconComponent className="w-4 h-4 sm:w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider">{trustItem.title}</h4>
+                              <p className="text-[10px] text-zinc-500">{trustItem.desc}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Recent Transactions & Secured Handovers Carousel List */}
+                    <section className="space-y-4 text-left">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 font-mono">Recent Secured Handovers</h3>
+                        </div>
+                        <span className="text-[9px] font-mono text-zinc-600">LIVE FEED</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {[
+                          { handle: '@vibe', platform: 'Instagram', cat: 'Short Word', price: '₹1,25,000', status: 'COMPLETED' },
+                          { handle: '@apex', platform: 'Telegram', cat: '3-Letter OG', price: '₹2,60,000', status: 'SOLD' },
+                          { handle: '@crypt', platform: 'X / Twitter', cat: 'Tech Term', price: '₹95,000', status: 'COMPLETED' },
+                          { handle: '@sol', platform: 'Domain Bundle', cat: 'Universal', price: '₹3,40,000', status: 'SOLD' }
+                        ].map((tx, idx) => (
+                          <div key={idx} className="p-4 bg-[#0a0a0c] border border-white/5 rounded-xl space-y-2 relative overflow-hidden group hover:border-zinc-700 transition-colors">
+                            <div className="absolute top-0 right-0 h-10 w-10 bg-gradient-to-bl from-zinc-800/20 to-transparent blur-md shrink-0 pointer-events-none" />
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold font-mono text-white tracking-tight">{tx.handle}</span>
+                              <span className="text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/15">
+                                {tx.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                              <span>{tx.platform} • {tx.cat}</span>
+                              <span className="font-mono text-zinc-400 font-semibold">{tx.price}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
 
                     {/* Vetted Highlights */}
                     <section className="space-y-8 text-left">
