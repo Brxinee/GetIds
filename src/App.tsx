@@ -218,6 +218,39 @@ export default function App() {
   const [whatsappConfirmTitle, setWhatsappConfirmTitle] = useState<string>('');
   const [whatsappConfirmSubtitle, setWhatsappConfirmSubtitle] = useState<string>('');
   const [whatsappConfirmCopied, setWhatsappConfirmCopied] = useState<boolean>(false);
+  const [handoffLoading, setHandoffLoading] = useState<boolean>(false);
+  const [handoffProgress, setHandoffProgress] = useState<string>('');
+
+  // Automatically trigger premium loading animation upon WhatsApp handoff initiate
+  useEffect(() => {
+    if (whatsappConfirmOpen) {
+      setHandoffLoading(true);
+      setHandoffProgress('Preparing secure escrow tunnel...');
+      
+      const timer1 = setTimeout(() => {
+        setHandoffProgress('Generating broker routing hash...');
+      }, 600);
+      
+      const timer2 = setTimeout(() => {
+        setHandoffProgress('Encrypting dossier variables...');
+      }, 1200);
+
+      const timer3 = setTimeout(() => {
+        setHandoffProgress('Readying manual transition room...');
+      }, 1800);
+
+      const timer4 = setTimeout(() => {
+        setHandoffLoading(false);
+      }, 2400);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        clearTimeout(timer3);
+        clearTimeout(timer4);
+      };
+    }
+  }, [whatsappConfirmOpen]);
 
   // Admin access validation state
   const [adminAuth, setAdminAuth] = useState<boolean>(() => {
@@ -922,36 +955,44 @@ export default function App() {
                       <div className="pt-4 space-y-4 border-t border-white/5">
                         <h4 className="text-[9px] uppercase font-bold text-zinc-400 tracking-widest font-mono">Guaranteed Escrow Shields</h4>
                         
-                        <div className="space-y-3 text-[11px] text-zinc-300">
+                        <div className="space-y-3.5 text-[11px] text-zinc-300">
                           <div className="flex gap-2.5 items-start">
                             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                             <div>
                               <span className="font-bold text-white block">Verified Seller</span>
-                              <span className="text-[10px] text-zinc-500 block leading-tight">Legitimate coordinate holding verified.</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Strict owner validation, recover key audits, and log isolation cleared.</span>
                             </div>
                           </div>
 
                           <div className="flex gap-2.5 items-start">
-                            <Lock className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                            <User className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                             <div>
-                              <span className="font-bold text-white block">Broker Assisted Transfer</span>
-                              <span className="text-[10px] text-zinc-500 block leading-tight">Supervised switchover coordinates.</span>
+                              <span className="font-bold text-white block">Human Broker Support</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Live handoff coordinators guide devices throughout the transfer room.</span>
                             </div>
                           </div>
 
                           <div className="flex gap-2.5 items-start">
-                            <Search className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                            <Lock className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
                             <div>
-                              <span className="font-bold text-white block">Manual Review</span>
-                              <span className="text-[10px] text-zinc-500 block leading-tight">In-depth background audit logs cleared.</span>
+                              <span className="font-bold text-white block">Secure Payment Workflow</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Bank route validation holds seller payouts until cleared.</span>
                             </div>
                           </div>
 
                           <div className="flex gap-2.5 items-start">
-                            <User className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <Search className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                             <div>
-                              <span className="font-bold text-white block">Human Support</span>
-                              <span className="text-[10px] text-zinc-500 block leading-tight">Individual guidance in premium chat rooms.</span>
+                              <span className="font-bold text-white block">Manual Listing Review</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Exclusively certified OG handles, zero automated list spams.</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2.5 items-start">
+                            <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-white block">Premium Brokerage Process</span>
+                              <span className="text-[10px] text-zinc-500 block leading-tight">Human-supervised escrow corridors with 0% bot leakage.</span>
                             </div>
                           </div>
                         </div>
@@ -1162,28 +1203,28 @@ export default function App() {
                       </div>
                     </header>
 
-                    {/* Dynamic Above-Fold Trust Strip */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 sm:p-5 bg-zinc-900/20 border border-white/5 rounded-2xl">
-                      {[
-                        { title: 'Verified Sellers', desc: 'Pre-vetted digital profiles', icon: UserCheck },
-                        { title: 'Human Broker Support', desc: 'Secure live chat rooms', icon: MessageCircle },
-                        { title: 'Manual Verification', desc: 'Zero administrative bot risks', icon: ShieldCheck },
-                        { title: 'Secure Assisted Transfers', desc: 'Supervised device handover', icon: Lock }
-                      ].map((trustItem, index) => {
-                        const IconComponent = trustItem.icon;
-                        return (
-                          <div key={index} className="flex gap-3 items-center text-left">
-                            <div className="p-2 sm:p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/10 shrink-0 text-blue-400">
-                              <IconComponent className="w-4 h-4 sm:w-5 h-5" />
-                            </div>
-                            <div>
-                              <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider">{trustItem.title}</h4>
-                              <p className="text-[10px] text-zinc-500">{trustItem.desc}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                     {/* Premium Fintech Above-Fold Trust Strip */}
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                       {[
+                         { title: 'Verified Seller Review', desc: 'Manual ownership audits and login log isolation.', icon: UserCheck, tint: 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' },
+                         { title: 'Human Broker Supervision', desc: 'Real-time supervised transfer room coordinate handoffs.', icon: MessageCircle, tint: 'text-blue-400 bg-blue-500/5 border-blue-500/10' },
+                         { title: 'Secure Payment Workflow', desc: 'INR routing bank checks, seller paid post-clearance.', icon: ShieldCheck, tint: 'text-purple-400 bg-purple-500/5 border-purple-500/10' },
+                         { title: 'Premium Listings Only', desc: 'Exclusively certified OG handles, zero numeric clutter.', icon: Lock, tint: 'text-amber-400 bg-amber-500/5 border-amber-500/10' }
+                       ].map((trustItem, index) => {
+                         const IconComponent = trustItem.icon;
+                         return (
+                           <div key={index} className={`flex gap-3 items-start p-4 bg-[#0a0a0c]/80 border rounded-xl hover:border-zinc-700 transition-colors ${trustItem.tint.split(' ').pop() || 'border-white/5'}`}>
+                             <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${trustItem.tint.split(' ').slice(0, 2).join(' ')}`}>
+                               <IconComponent className="w-4.5 h-4.5" />
+                             </div>
+                             <div>
+                               <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider">{trustItem.title}</h4>
+                               <p className="text-[10px] text-zinc-400 mt-1 leading-normal font-serif font-light">{trustItem.desc}</p>
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
 
                     {/* Recent Transactions & Secured Handovers Carousel List */}
                     <section className="space-y-4 text-left">
@@ -1350,6 +1391,96 @@ export default function App() {
                       </div>
                     </section>
 
+                    {/* Why Buyers Trust GETIDS section */}
+                    <section className="space-y-8 text-left border-t border-white/5 pt-16 animate-fadeIn">
+                      <div className="text-center max-w-lg mx-auto space-y-2">
+                        <span className="text-[10px] tracking-wider font-extrabold uppercase text-blue-500 font-mono">Bespoke Escrow Standards</span>
+                        <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Why Buyers Trust GETIDS</h2>
+                        <p className="text-xs text-zinc-400">Our manually brokered structure overrides vulnerabilities inherent in conventional automated switches.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                          { title: 'Manual Seller Verification', desc: 'Thorough background checks on all handle registries before approval.', badge: 'Vetted Logs' },
+                          { title: 'Human Deal Supervision', desc: 'Supervised, step-by-step handoff workspace. No raw automated switches.', badge: 'Live Escrow' },
+                          { title: 'No Anonymous Direct Transfers', desc: 'The buyer never interacts with the anonymous seller directly, reducing negotiation stress.', badge: 'Protected Deal' },
+                          { title: 'Premium Listing Review', desc: 'Only vetted high-tier digital identities clear dense regulatory hurdles.', badge: 'Certified Only' }
+                        ].map((trustCard, idx) => (
+                          <div key={idx} className="p-6 bg-[#0c0c0e] border border-white/5 rounded-2xl space-y-4 hover:border-blue-500/30 transition-all group">
+                            <span className="text-[8px] font-mono tracking-widest text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded font-extrabold uppercase">{trustCard.badge}</span>
+                            <h3 className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{trustCard.title}</h3>
+                            <p className="text-xs text-zinc-500 leading-relaxed font-serif font-light">{trustCard.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    {/* What qualifies as premium? section */}
+                    <section className="space-y-8 text-left border-t border-white/5 pt-16 animate-fadeIn">
+                      <div className="text-center max-w-lg mx-auto space-y-2">
+                        <span className="text-[10px] tracking-wider font-extrabold uppercase text-amber-500 font-mono">Marketplace Hygiene Controls</span>
+                        <h2 className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">What qualifies as premium?</h2>
+                        <p className="text-xs text-zinc-400">To prevent marketplace quality decay, we enforce strict listings submission compliance standards.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-[#09090b]/80 border border-white/5 p-6 sm:p-8 rounded-2xl">
+                        {/* Accepted column */}
+                        <div className="space-y-4 border-r border-white/5 pr-0 md:pr-8">
+                          <h3 className="text-xs font-bold font-mono tracking-widest text-emerald-400 uppercase flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            ACCEPTED PREMIUM CATEGORIES
+                          </h3>
+                          <ul className="space-y-3.5 text-xs text-zinc-300 font-sans">
+                            {[
+                              { label: 'Short Usernames', desc: 'Handles containing 3-4 letters or digits with high scarcity values (OG).' },
+                              { label: 'Brandable Handles', desc: 'Memorable, single-word dictionary terms or pristine branding names.' },
+                              { label: 'Media and Creator Names', desc: 'Broadband/broadcast generic handles suited for prominent digital channels.' },
+                              { label: 'Finance & Crypto Handles', desc: 'Highly targeted market, cryptocurrency, or investment terms.' },
+                              { label: 'Business & Sourcing Names', desc: 'Pragmatic corporate or trade labels carrying global brand appeal.' },
+                              { label: 'Location & City Handles', desc: 'Premium regional identifiers or travel terms of high regional context.' },
+                              { label: 'Premium Niche Handles', desc: 'Voted trending categories carrying emotional or community weight.' }
+                            ].map((item, idx) => (
+                              <li key={idx} className="flex gap-2.5 items-start">
+                                <div className="p-0.5 rounded bg-emerald-500/10 text-emerald-400 mt-0.5 shrink-0">
+                                  <Check className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                  <strong className="text-zinc-200 block">{item.label}</strong>
+                                  <span className="text-[11px] text-zinc-500 font-serif">{item.desc}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Rejected column */}
+                        <div className="space-y-4 pt-6 md:pt-0">
+                          <h3 className="text-xs font-bold font-mono tracking-widest text-red-500 uppercase flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                            REJECTED LOW-TIER ENTRIES
+                          </h3>
+                          <ul className="space-y-4 text-xs text-zinc-300 font-sans">
+                            {[
+                              { label: 'Spam Handles', desc: 'Random keyword soup, confusing prefixes, or excessive hyphenation chains.' },
+                              { label: 'Random Numeric Junk', desc: 'Long numbers appended to generic terms with low standalone brand values.' },
+                              { label: 'Trademark Impersonation', desc: 'Unauthorized brand or trademark lookalikes attempting to solicit spoof traffic.' },
+                              { label: 'Fake Ownership', desc: 'Attempts to list handles without verifiable screen state or recovery control.' }
+                            ].map((item, idx) => (
+                              <li key={idx} className="flex gap-2.5 items-start">
+                                <div className="p-0.5 rounded bg-red-500/10 text-red-500 mt-0.5 shrink-0">
+                                  <X className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                  <strong className="text-zinc-200 block">{item.label}</strong>
+                                  <span className="text-[11px] text-zinc-500 font-serif">{item.desc}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </section>
+
                   </div>
                 )}
 
@@ -1455,19 +1586,25 @@ export default function App() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl max-w-xl mx-auto space-y-4 bg-[#0c0c0d]">
-                        <div className="p-3 bg-zinc-900 rounded-full w-12 h-12 flex items-center justify-center mx-auto text-zinc-500">
-                          <Inbox className="w-6 h-6" />
+                      <div className="text-center py-16 border border-dashed border-zinc-800 rounded-3xl max-w-lg mx-auto space-y-5 bg-[#08080a] relative overflow-hidden">
+                        <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+                        <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl w-14 h-14 flex items-center justify-center mx-auto text-blue-400">
+                          <Search className="w-7 h-7" />
                         </div>
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">No Registry Entries Match</h3>
-                        <p className="text-xs text-zinc-500 max-w-sm mx-auto leading-relaxed">
-                          We do not currently host live original registry assets fitting those criteria. Commission a target search hunt on our broker desks!
-                        </p>
+                        <div className="space-y-1.5 px-4">
+                          <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">Can't find the exact ID you want?</h3>
+                          <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed font-serif font-light">
+                            Our proprietary scouting network can track and acquire premium digital identities from inactive registrants worldwide on your behalf.
+                          </p>
+                        </div>
                         <button
-                          onClick={() => setActiveTab('request')}
-                          className="px-6 py-3 bg-white text-black text-xs font-bold tracking-widest uppercase rounded-xl cursor-pointer"
+                          onClick={() => {
+                            setActiveTab('request');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold tracking-widest uppercase rounded-xl transition-all shadow-md active:scale-95 cursor-pointer font-mono"
                         >
-                          Commission Custom Hunt
+                          Request Specific ID
                         </button>
                       </div>
                     )}
@@ -1667,9 +1804,9 @@ export default function App() {
                               />
                             </div>
 
-                            <div className="p-3.5 bg-zinc-900/60 border border-white/5 rounded-xl text-[11px] text-zinc-400 leading-relaxed">
-                              Commission rate is locked at {brokeragePct}% administrative deduction upon completed, successful handovers. Zero listing charges.
-                            </div>
+                             <div className="p-3.5 bg-zinc-900/60 border border-white/5 rounded-xl text-[11px] text-zinc-400 leading-relaxed">
+                               Success-Based Brokerage applies. Rest assured; fees are adjusted only after a successful supervised deal. Premium Broker-Assisted Sales carry zero upfront listing costs.
+                             </div>
                           </div>
                         )}
 
@@ -1854,9 +1991,9 @@ export default function App() {
 
                     <div className="p-6 sm:p-10 border border-white/[0.08] bg-[#0c0c0e] rounded-2xl flex flex-col md:flex-row items-center justify-between gap-8 text-left">
                       <div className="space-y-2 max-w-lg">
-                        <h2 className="text-lg sm:text-xl font-bold text-white uppercase font-mono">Commission structures</h2>
+                        <h2 className="text-lg sm:text-xl font-bold text-white uppercase font-mono">Success-Based Brokerage</h2>
                         <p className="text-xs text-zinc-400 leading-normal font-serif font-light">
-                          Our brokerage charges a flat {brokeragePct}% administrative verification fee upon successfully closed transfers. Zero upfront checkout costs.
+                          Brokerage applies only after a successful transaction and supervised safety transfer is fully signed off. We charge zero upfront listing fees, ensuring aligning of interest for premium broker-assisted sales.
                         </p>
                       </div>
                       <button
@@ -2457,7 +2594,31 @@ export default function App() {
       {/* High-Trust Secure WhatsApp Transition Modal */}
       {whatsappConfirmOpen && (
         <div id="whatsapp-handover-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#030303]/95 backdrop-blur-md">
-          <div className="w-full max-w-xl bg-[#0f0f10] border border-white/10 rounded-2xl p-6 sm:p-8 relative space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] text-left">
+          {handoffLoading ? (
+            <div className="w-full max-w-sm bg-[#0f0f10] border border-white/10 rounded-2xl p-8 text-center space-y-6 shadow-2xl relative overflow-hidden animate-fadeIn">
+              <div className="absolute -top-10 -right-10 h-32 w-32 bg-gradient-to-br from-blue-500/10 to-transparent blur-2xl pointer-events-none" />
+              <div className="mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 relative">
+                <RefreshCw className="w-8 h-8 animate-spin" />
+                <span className="absolute inset-0 rounded-full border border-blue-500/10 animate-ping opacity-30" />
+              </div>
+              <div className="space-y-3">
+                <h3 className="text-base font-bold text-white uppercase tracking-wider font-mono">Preparing Secure Broker Request...</h3>
+                <p className="text-xs text-zinc-400 font-mono tracking-tight leading-relaxed">{handoffProgress}</p>
+              </div>
+              <div className="w-full bg-[#050505] h-1.5 rounded-full overflow-hidden border border-white/5 relative">
+                <div 
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ 
+                    width: handoffProgress.includes('escrow') ? '25%' : 
+                           handoffProgress.includes('routing') ? '50%' : 
+                           handoffProgress.includes('variables') ? '75%' : '95%' 
+                  }} 
+                />
+              </div>
+              <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-widest font-bold">GETIDS SECURE TRANSIT LINK</p>
+            </div>
+          ) : (
+            <div className="w-full max-w-xl bg-[#0f0f10] border border-white/10 rounded-2xl p-6 sm:p-8 relative space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] text-left">
             
             {/* Close button */}
             <button
@@ -2604,8 +2765,27 @@ export default function App() {
                 Cancel Handover
               </button>
             </div>
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Sticky Mobile Bottom Floating Action Shield */}
+      {selectedId && currentListing && (
+        <div className="fixed bottom-0 inset-x-0 p-4 bg-[#0a0a0c]/90 backdrop-blur-md z-40 lg:hidden flex items-center justify-between border-t border-white/5 gap-4">
+          <div className="text-left">
+            <span className="text-[9px] uppercase font-bold text-zinc-500 block font-mono">Secure Escrow</span>
+            <span className="text-sm font-mono font-black text-white block">@{currentListing.username}</span>
           </div>
+          <button
+            onClick={() => {
+              setBuyerOffer(currentListing.askingPrice.toString());
+              setDealModalOpen(true);
+            }}
+            className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold font-mono tracking-wider uppercase shadow-xl transition-all cursor-pointer active:scale-95 shrink-0"
+          >
+            Talk to Broker
+          </button>
         </div>
       )}
 

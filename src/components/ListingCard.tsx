@@ -75,21 +75,37 @@ export default function ListingCard({ item, onClick, onQuickDeal }: ListingCardP
 
   // Compute luxury badges/tags
   const computedTags: string[] = [];
+  computedTags.push('VERIFIED');
+  
+  if (item.featured) {
+    computedTags.push('HOT');
+  }
+
   if (item.username.length <= 3) {
     computedTags.push('OG');
     computedTags.push('SHORT');
   } else if (item.username.length === 4) {
     computedTags.push('SHORT');
-  } else if (item.username.length <= 5) {
+  } else if (item.username.length <= 6) {
     computedTags.push('BRANDABLE');
   }
   
-  if (item.rarityScore === 'Grail') {
-    computedTags.push('PREMIUM');
+  const catLower = item.category.toLowerCase();
+  if (catLower.includes('media') || catLower.includes('news') || catLower.includes('broadcast')) {
+    computedTags.push('MEDIA');
   }
-  
-  if (item.category.toLowerCase().includes('tech') || item.category.toLowerCase().includes('dictionary')) {
+  if (catLower.includes('finance') || catLower.includes('crypto') || catLower.includes('wealth') || catLower.includes('money')) {
+    computedTags.push('FINANCE');
+  }
+  if (catLower.includes('city') || catLower.includes('location') || catLower.includes('travel')) {
+    computedTags.push('CITY');
+  }
+  if (catLower.includes('tech') || catLower.includes('dictionary') || catLower.includes('trending')) {
     computedTags.push('TRENDING');
+  }
+
+  if (item.rarityScore === 'Grail' || item.rarityScore === 'Legendary') {
+    computedTags.push('PREMIUM');
   }
 
   const isHot = item.featured || item.rarityScore === 'Grail' || item.priceDisplayType === 'PRICE_ON_REQUEST';
